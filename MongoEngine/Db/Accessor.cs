@@ -10,12 +10,12 @@ using Vb.Mongo.Engine.Query;
 
 namespace Vb.Mongo.Engine.Db
 {
-    public class DBStore<T> where T : class
+    public class Accessor<T> where T : class
     {
         private string _dbName;
-        static IMongoDatabase _db = null;
+        IMongoDatabase _db = null;
 
-        public DBStore(string pDbName)
+        public Accessor(string pDbName)
         {
             _dbName = pDbName;
             _db = ConnectionManager.Client.GetDatabase(_dbName);
@@ -58,6 +58,12 @@ namespace Vb.Mongo.Engine.Db
                 {
                     case EnComparator.Like:
                         token = filter.Regex(criteria.Field,BsonRegularExpression.Create(criteria.Value));
+                        break;
+                    case EnComparator.GreaterThan:
+                        token = filter.Gt(criteria.Field, BsonValue.Create(criteria.Value));
+                        break;
+                    case EnComparator.LessThan: 
+                        token = filter.Lt(criteria.Field, BsonValue.Create(criteria.Value));
                         break;
                     default:
                         token = filter.Eq(criteria.Field, BsonValue.Create(criteria.Value));
