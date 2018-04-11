@@ -36,11 +36,11 @@ namespace Vb.Mongo.Engine.Db
             collection.InsertMany(pItems);
         }
 
-        public IList<T> Search(FilterDefinition<T> query)
+        public IList<T> Search(FilterDefinition<T> query, SortDefinition<T> sorting=null)
         {
 
             var collection = _db.GetCollection<T>(nameof(T));
-            var found = collection.Find(query);
+            var found = (sorting==null)?collection.Find(query):collection.Find(query).Sort(sorting);
             var result = found.ToList();
             return result;
         }
@@ -50,7 +50,7 @@ namespace Vb.Mongo.Engine.Db
             var filter = Builders<T>.Filter;
 
             FilterDefinition<T> query = null;
-
+            SortDefinition<T> sort = null;
             foreach (var criteria in pQuery.Fields)
             {
                 FilterDefinition<T> token = null;
@@ -108,6 +108,10 @@ namespace Vb.Mongo.Engine.Db
                         }
                         break;
                 }
+            }
+            if(pQuery.Sort.Count>0)
+            {
+                
             }
             return Search(query);
         }
