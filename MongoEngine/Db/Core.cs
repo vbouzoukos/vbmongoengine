@@ -36,11 +36,11 @@ namespace Vb.Mongo.Engine.Db
             collection.InsertMany(pItems);
         }
 
-        public IList<T> Search(FilterDefinition<T> query, SortDefinition<T> sorting=null)
+        public IList<T> Search(FilterDefinition<T> query, SortDefinition<T> sorting = null)
         {
 
             var collection = _db.GetCollection<T>(nameof(T));
-            var found = (sorting==null)?collection.Find(query):collection.Find(query).Sort(sorting);
+            var found = (sorting == null) ? collection.Find(query) : collection.Find(query).Sort(sorting);
             var result = found.ToList();
             return result;
         }
@@ -57,12 +57,12 @@ namespace Vb.Mongo.Engine.Db
                 switch (criteria.Compare)
                 {
                     case EnComparator.Like:
-                        token = filter.Regex(criteria.Field,BsonRegularExpression.Create(criteria.Value));
+                        token = filter.Regex(criteria.Field, BsonRegularExpression.Create(criteria.Value));
                         break;
                     case EnComparator.GreaterThan:
                         token = filter.Gt(criteria.Field, BsonValue.Create(criteria.Value));
                         break;
-                    case EnComparator.LessThan: 
+                    case EnComparator.LessThan:
                         token = filter.Lt(criteria.Field, BsonValue.Create(criteria.Value));
                         break;
                     default:
@@ -109,24 +109,22 @@ namespace Vb.Mongo.Engine.Db
                         break;
                 }
             }
-            if(pQuery.Sort.Count>0)
+            if (pQuery.Sort.Count > 0)
             {
                 var sortBuilder = Builders<T>.Sort;
-                foreach(var sortField in pQuery.Sort)
+                foreach (var sortField in pQuery.Sort)
                 {
-                    if(sort==null)
+                    if (sort == null)
                     {
-                        sort = (sortField.Ascending)?sortBuilder.Ascending(sortField.Field):sortBuilder.Descending(sortField.Field);
+                        sort = (sortField.Ascending) ? sortBuilder.Ascending(sortField.Field) : sortBuilder.Descending(sortField.Field);
                     }
                     else
                     {
-                        sort =(sortField.Ascending) ? sort.Ascending(sortField.Field) : sort.Descending(sortField.Field);
+                        sort = (sortField.Ascending) ? sort.Ascending(sortField.Field) : sort.Descending(sortField.Field);
                     }
-                        
-
                 }
             }
-            return Search(query,sort);
+            return Search(query, sort);
         }
     }
 }
