@@ -5,9 +5,18 @@
     <TargetFramework>netcoreapp1.1</TargetFramework>
     <ApplicationIcon />
     <StartupObject />
+    <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+    <Copyright>Vasileios Bouzoukos</Copyright>
+    <Description>A simple engine to manage a Mongo Database</Description>
+    <Authors>Vasileios Bouzoukos</Authors>
+    <Company>Vasileios Bouzoukos</Company>
+    <Version>0.1.0</Version>
+    <AssemblyVersion>0.1.0.0</AssemblyVersion>
+    <FileVersion>0.1.0.0</FileVersion>
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Remove="AssemblyInfo.cs" />
     <Compile Remove="Db\ConnectionManager.cs" />
   </ItemGroup>
 
