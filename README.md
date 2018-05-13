@@ -2,6 +2,9 @@
 
 A simple Engine to connect insert and search Items in a mongo database.
 
+### Nuget Install
+[Nuget](https://www.nuget.org/packages/Vb.Mongo.Engine)
+
 ## Usage Example
 
 ### Set up a connection to mongo DB
