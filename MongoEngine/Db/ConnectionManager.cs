@@ -12,7 +12,9 @@ namespace Vb.Mongo.Engine.Db
     {
         static MongoClient _client = null;
 
-
+        /// <summary>
+        /// Instance of MongoDBClient
+        /// </summary>
         public static MongoClient Client
         {
             get
@@ -33,6 +35,13 @@ namespace Vb.Mongo.Engine.Db
         {
             _client = new MongoClient(connectionString);
         }
-
+        /// <summary>
+        /// Deletes a database from mongoDB
+        /// </summary>
+        /// <param name="dbName"></param>
+        public static void DropDatabase(string dbName)
+        {
+            Client.DropDatabase(dbName);
+        }
     }
 }

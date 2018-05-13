@@ -6,17 +6,38 @@ using System.Text;
 
 namespace Vb.Mongo.Engine.Query
 {
-    class QueryField : IQueryField
+    /// <summary>
+    /// Hold information for searching a value of a field in mongoDb
+    /// </summary>
+    class QueryField
     {
+        /// <summary>
+        /// The search field
+        /// </summary>
         public string Field { get; set; }
+        /// <summary>
+        /// 
+        /// </summary>
         public object Value { get; set; }
-        public enOperator Operator { get; set; }
+        /// <summary>
+        /// The logical operator AND, Or, NOT
+        /// </summary>
+        public EnOperator Operator { get; set; }
+        /// <summary>
+        /// Comparison between data and value to satisfy the criteria
+        /// </summary>
         public EnComparator Compare { get; set; }
-
-        public QueryField(string pField, object pValue, enOperator logicOperator, EnComparator compare)
+        /// <summary>
+        /// Constructor
+        /// </summary>
+        /// <param name="field">The search field</param>
+        /// <param name="value">The query value</param>
+        /// <param name="logicOperator">The logical operator AND, Or, NOT</param>
+        /// <param name="compare">Comparison between data and value to satisfy the criteria</param>
+        public QueryField(string field, object value, EnOperator logicOperator, EnComparator compare)
         {
-            Field = pField;
-            Value = pValue;
+            Field = field;
+            Value = value;
             Operator = logicOperator;
             Compare = compare;
         }

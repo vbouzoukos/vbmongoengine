@@ -10,32 +10,43 @@ using Vb.Mongo.Engine.Query;
 
 namespace Vb.Mongo.Engine.Db
 {
+    /// <summary>
+    /// Core mongoDb manager Can search or insert items of type T into the database
+    /// </summary>
+    /// <typeparam name="T">The Entity stored in mongoDb</typeparam>
     public class Core<T> where T : class
     {
         private string _dbName;
         static IMongoDatabase _db = null;
-
+        /// <summary>
+        /// Constructor
+        /// </summary>
+        /// <param name="pDbName">The database name</param>
         public Core(string pDbName)
         {
             _dbName = pDbName;
-            _db = ConnectionManager.Client.GetDatabase(_dbName);
+            _db = Settings.Instance.Client.GetDatabase(_dbName);
             BsonClassMap.RegisterClassMap<T>(cm =>
             {
                 cm.AutoMap();
             });
         }
-
-        public void DropDatabase()
-        {
-            ConnectionManager.Client.DropDatabase(_dbName);
-        }
-
+        /// <summary>
+        /// Stores a set of Data in Data Base
+        /// </summary>
+        /// <param name="pItems"></param>
         public void Store(IList<T> pItems)
         {
             var collection = _db.GetCollection<T>(nameof(T));
             collection.InsertMany(pItems);
         }
 
+        /// <summary>
+        /// Core search of MongoDB
+        /// </summary>
+        /// <param name="query">The filter of the query that defines the search</param>
+        /// <param name="sorting">The results sort</param>
+        /// <returns>Results List</returns>
         public IList<T> Search(FilterDefinition<T> query, SortDefinition<T> sorting = null)
         {
 
@@ -44,7 +55,11 @@ namespace Vb.Mongo.Engine.Db
             var result = found.ToList();
             return result;
         }
-
+        /// <summary>
+        /// Search in Mongo Db Database
+        /// </summary>
+        /// <param name="pQuery">The query information that describes the requested search</param>
+        /// <returns></returns>
         public IList<T> Search(QueryInfo<T> pQuery)
         {
             var filter = Builders<T>.Filter;
@@ -71,7 +86,7 @@ namespace Vb.Mongo.Engine.Db
                 }
                 switch (criteria.Operator)
                 {
-                    case enOperator.And:
+                    case EnOperator.And:
                         {
                             if (query == null)
                             {
@@ -83,7 +98,7 @@ namespace Vb.Mongo.Engine.Db
                             }
                         }
                         break;
-                    case enOperator.Or:
+                    case EnOperator.Or:
                         {
                             if (query == null)
                             {
@@ -95,7 +110,7 @@ namespace Vb.Mongo.Engine.Db
                             }
                         }
                         break;
-                    case enOperator.Not:
+                    case EnOperator.Not:
                         {
                             if (query == null)
                             {

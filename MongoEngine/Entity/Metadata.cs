@@ -33,11 +33,18 @@ namespace Vb.Mongo.Engine.Entity
             return attribute;
         }
 
+        /// <summary>
+        /// Returns an array of custom attributes
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <param name="prop"></param>
+        /// <returns></returns>
         public static T[] CustomAttributeInfos<T>(PropertyInfo prop) where T : Attribute
         {
             var attributes = prop.GetCustomAttributes(typeof(T), true) as T[];
             return attributes.ToArray();
         }
+
         /// <summary>
         /// Generate the expression prop=>prop.pPropertyName
         /// </summary>
