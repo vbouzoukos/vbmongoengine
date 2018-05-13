@@ -111,9 +111,22 @@ namespace Vb.Mongo.Engine.Db
             }
             if(pQuery.Sort.Count>0)
             {
-                
+                var sortBuilder = Builders<T>.Sort;
+                foreach(var sortField in pQuery.Sort)
+                {
+                    if(sort==null)
+                    {
+                        sort = (sortField.Ascending)?sortBuilder.Ascending(sortField.Field):sortBuilder.Descending(sortField.Field);
+                    }
+                    else
+                    {
+                        sort =(sortField.Ascending) ? sort.Ascending(sortField.Field) : sort.Descending(sortField.Field);
+                    }
+                        
+
+                }
             }
-            return Search(query);
+            return Search(query,sort);
         }
     }
 }
