@@ -1,15 +1,15 @@
-#VB Mongo Engine
+# VB Mongo Engine
 
 A simple Engine to connect insert and search Items in a mongo database.
 
-##Usage Example
+## Usage Example
 
-###Set up a connection to mongo DB
+### Set up a connection to mongo DB
 In order to connect into the Mongo DB you ll need to use the StartUp function of the Settings Class
 
             Settings.StartUp("mongodb://localhost");
 
-###Insert Data into Mongo DB database
+### Insert Data into Mongo DB database
 
 To insert data into the mongo DB database you need to Set Up a Core instance of the stored entity like the following example
 
@@ -35,7 +35,7 @@ This creates an instance of the TestItem entity and will be mapped to the corres
             );
 
 
-###Search in Mongo DB
+### Search in Mongo DB
 
 
 In order to search for Data you ll need a QueryInfo instance that contains the search information
@@ -83,6 +83,6 @@ To perform the Search you simply call the **Core** function **Search** with the 
             var result = test.Search(query);
 
 
-##Releases
+## Releases
 
 13/05/2018: Version 0.1
