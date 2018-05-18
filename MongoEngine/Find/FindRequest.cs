@@ -17,8 +17,8 @@ namespace Vb.Mongo.Engine.Find
         internal IList<QueryField> Fields { get; set; } = new List<QueryField>();
         internal IList<Sorting> Sort { get; set; } = new List<Sorting>();
 
-        internal int Skip { get; set; }
-        internal int Take { get; set; }
+        internal int? Skip { get; set; }
+        internal int? Take { get; set; }
 
 
         int _page;
@@ -64,16 +64,17 @@ namespace Vb.Mongo.Engine.Find
         }
         int _pages;
         public int Pages { get { return _pages; } }
+
         #endregion
 
         #region Constructor
         /// <summary>
-        /// Default Constructor
+        /// Default Constructor (no paging or limits)
         /// </summary>
         public FindRequest()
         {
-
-            setPaging(1, Settings.Instance.ResultsLimit, Settings.Instance.ResultsLimit);
+            Skip = null;
+            Take = null;
         }
         /// <summary>
         /// Paging default limit constructor
@@ -118,6 +119,8 @@ namespace Vb.Mongo.Engine.Find
         void pagingCalculations()
         {
             var pg = _page - 1;
+            if (pg < 0)
+                return;
             Skip = pg * _itemsPerPage;
             _pages = (int)Math.Ceiling((double)_limitUp / _itemsPerPage);
             if (_pages == _page)
