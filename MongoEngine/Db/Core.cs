@@ -5,6 +5,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq.Expressions;
 using System.Text;
+using System.Threading.Tasks;
 using Vb.Mongo.Engine.Entity;
 using Vb.Mongo.Engine.Query;
 
@@ -55,18 +56,63 @@ namespace Vb.Mongo.Engine.Db
             var result = found.ToList();
             return result;
         }
+
         /// <summary>
         /// Search in Mongo Db Database
         /// </summary>
         /// <param name="pQuery">The query information that describes the requested search</param>
         /// <returns></returns>
-        public IList<T> Search(QueryInfo<T> pQuery)
+        public IList<T> Search(QueryInfo<T> queryInfo)
+        {
+
+            var filter = buildFilterDefinition(queryInfo);
+            var sort = buildSortingDefinition(queryInfo);
+            return Search(filter, sort);
+        }
+
+        /// <summary>
+        /// Core Async search in MongoDB
+        /// </summary>
+        /// <param name="query">The filter of the query that defines the search</param>
+        /// <param name="sorting">The results sort</param>
+        /// <returns>Results List</returns>
+        public async Task<IList<T>> SearchAsync(FilterDefinition<T> query, SortDefinition<T> sorting = null)
+        {
+            var collection = _db.GetCollection<T>(nameof(T));
+            var options = new FindOptions<T>
+            {
+                Sort = sorting
+            };
+            using (var cursor = await collection.FindAsync(query, options))
+            {
+                var result = cursor.ToList();
+                return result;
+            }
+        }
+
+        /// <summary>
+        /// Async call to get results from MongoDB
+        /// </summary>
+        /// <param name="queryInfo">The query information that describes the requested search<</param>
+        /// <returns>The query information that describes the requested search<</returns>
+        public async Task<IList<T>> SearchAsync(QueryInfo<T> queryInfo)
+        {
+
+            var filter = buildFilterDefinition(queryInfo);
+            var sort = buildSortingDefinition(queryInfo);
+            return await SearchAsync(filter, sort);
+        }
+
+        /// <summary>
+        /// Generate a filter definition from a Query Information
+        /// </summary>
+        /// <param name="queryInfo">The query information that describes the requested search</param>
+        /// <returns>MongoDB Filter definition for T</returns>
+        FilterDefinition<T> buildFilterDefinition(QueryInfo<T> queryInfo)
         {
             var filter = Builders<T>.Filter;
-
-            FilterDefinition<T> query = null;
-            SortDefinition<T> sort = null;
-            foreach (var criteria in pQuery.Fields)
+            FilterDefinition<T> filterDef = null;
+            foreach (var criteria in queryInfo.Fields)
             {
                 FilterDefinition<T> token = null;
                 switch (criteria.Compare)
@@ -88,58 +134,69 @@ namespace Vb.Mongo.Engine.Db
                 {
                     case EnOperator.And:
                         {
-                            if (query == null)
+                            if (filterDef == null)
                             {
-                                query = filter.And(token); ;
+                                filterDef = filter.And(token); ;
                             }
                             else
                             {
-                                query &= token;
+                                filterDef &= token;
                             }
                         }
                         break;
                     case EnOperator.Or:
                         {
-                            if (query == null)
+                            if (filterDef == null)
                             {
-                                query = filter.Or(token);
+                                filterDef = filter.Or(token);
                             }
                             else
                             {
-                                query |= token;
+                                filterDef |= token;
                             }
                         }
                         break;
                     case EnOperator.Not:
                         {
-                            if (query == null)
+                            if (filterDef == null)
                             {
-                                query = filter.Not(token);
+                                filterDef = filter.Not(token);
                             }
                             else
                             {
-                                query &= filter.Not(token);
+                                filterDef &= filter.Not(token);
                             }
                         }
                         break;
                 }
             }
-            if (pQuery.Sort.Count > 0)
+            return filterDef;
+        }
+        /// <summary>
+        /// Generate a sort definition from a Query Information
+        /// </summary>
+        /// <param name="queryInfo">The query information that describes the requested search</param>
+        /// <returns>MongoDB Filter definition for T</returns>
+        SortDefinition<T> buildSortingDefinition(QueryInfo<T> queryInfo)
+        {
+            SortDefinition<T> sortDef = null;
+
+            if (queryInfo.Sort.Count > 0)
             {
                 var sortBuilder = Builders<T>.Sort;
-                foreach (var sortField in pQuery.Sort)
+                foreach (var sortField in queryInfo.Sort)
                 {
-                    if (sort == null)
+                    if (sortDef == null)
                     {
-                        sort = (sortField.Ascending) ? sortBuilder.Ascending(sortField.Field) : sortBuilder.Descending(sortField.Field);
+                        sortDef = (sortField.Ascending) ? sortBuilder.Ascending(sortField.Field) : sortBuilder.Descending(sortField.Field);
                     }
                     else
                     {
-                        sort = (sortField.Ascending) ? sort.Ascending(sortField.Field) : sort.Descending(sortField.Field);
+                        sortDef = (sortField.Ascending) ? sortDef.Ascending(sortField.Field) : sortDef.Descending(sortField.Field);
                     }
                 }
             }
-            return Search(query, sort);
+            return sortDef;
         }
     }
 }
