@@ -10,9 +10,15 @@ namespace Vb.Mongo.Engine.Db
     /// </summary>
     public class Settings
     {
+
         internal String ConnectionString { get; set; }
         static Settings _instance = null;
         MongoClient _client = null;
+
+        /// <summary>
+        /// Mongo DB results limit
+        /// </summary>
+        public int ResultsLimit { get; set; } = 1000;
 
         /// <summary>
         /// Singleton instance of Engine Settings

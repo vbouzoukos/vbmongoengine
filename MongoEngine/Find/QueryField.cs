@@ -4,7 +4,7 @@ using System.Collections.Generic;
 using System.Linq.Expressions;
 using System.Text;
 
-namespace Vb.Mongo.Engine.Query
+namespace Vb.Mongo.Engine.Find
 {
     /// <summary>
     /// Hold information for searching a value of a field in mongoDb

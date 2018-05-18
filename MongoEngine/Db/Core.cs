@@ -7,7 +7,7 @@ using System.Linq.Expressions;
 using System.Text;
 using System.Threading.Tasks;
 using Vb.Mongo.Engine.Entity;
-using Vb.Mongo.Engine.Query;
+using Vb.Mongo.Engine.Find;
 
 namespace Vb.Mongo.Engine.Db
 {
@@ -35,11 +35,21 @@ namespace Vb.Mongo.Engine.Db
         /// <summary>
         /// Stores a set of Data in Data Base
         /// </summary>
-        /// <param name="pItems"></param>
+        /// <param name="pItems">Data to store</param>
         public void Store(IList<T> pItems)
         {
             var collection = _db.GetCollection<T>(nameof(T));
             collection.InsertMany(pItems);
+        }
+
+        /// <summary>
+        /// Stores a set of Data in Data Base async
+        /// </summary>
+        /// <param name="pItems">Data to store</param>
+        public async Task StoreAsync(IList<T> pItems)
+        {
+            var collection = _db.GetCollection<T>(nameof(T));
+            await collection.InsertManyAsync(pItems);
         }
 
         /// <summary>
@@ -48,13 +58,9 @@ namespace Vb.Mongo.Engine.Db
         /// <param name="query">The filter of the query that defines the search</param>
         /// <param name="sorting">The results sort</param>
         /// <returns>Results List</returns>
-        public IList<T> Search(FilterDefinition<T> query, SortDefinition<T> sorting = null)
+        public IList<T> Search(FilterDefinition<T> query, SortDefinition<T> sorting = null, int? skip = null, int? take=null)
         {
-
-            var collection = _db.GetCollection<T>(nameof(T));
-            var found = (sorting == null) ? collection.Find(query) : collection.Find(query).Sort(sorting);
-            var result = found.ToList();
-            return result;
+            return Task.Run(async () => { return await SearchAsync(query, sorting, skip, take); }).Result;
         }
 
         /// <summary>
@@ -62,12 +68,12 @@ namespace Vb.Mongo.Engine.Db
         /// </summary>
         /// <param name="pQuery">The query information that describes the requested search</param>
         /// <returns></returns>
-        public IList<T> Search(QueryInfo<T> queryInfo)
+        public IList<T> Search(FindRequest<T> request)
         {
 
-            var filter = buildFilterDefinition(queryInfo);
-            var sort = buildSortingDefinition(queryInfo);
-            return Search(filter, sort);
+            var filter = buildFilterDefinition(request);
+            var sort = buildSortingDefinition(request);
+            return Search(filter, sort, request.Skip, request.Take);
         }
 
         /// <summary>
@@ -76,12 +82,14 @@ namespace Vb.Mongo.Engine.Db
         /// <param name="query">The filter of the query that defines the search</param>
         /// <param name="sorting">The results sort</param>
         /// <returns>Results List</returns>
-        public async Task<IList<T>> SearchAsync(FilterDefinition<T> query, SortDefinition<T> sorting = null)
+        public async Task<IList<T>> SearchAsync(FilterDefinition<T> query, SortDefinition<T> sorting = null,int ? skip = null, int? take = null)
         {
             var collection = _db.GetCollection<T>(nameof(T));
             var options = new FindOptions<T>
             {
-                Sort = sorting
+                Sort = sorting,
+                Limit=take,
+                Skip=skip
             };
             using (var cursor = await collection.FindAsync(query, options))
             {
@@ -93,14 +101,14 @@ namespace Vb.Mongo.Engine.Db
         /// <summary>
         /// Async call to get results from MongoDB
         /// </summary>
-        /// <param name="queryInfo">The query information that describes the requested search<</param>
+        /// <param name="request">The query information that describes the requested search<</param>
         /// <returns>The query information that describes the requested search<</returns>
-        public async Task<IList<T>> SearchAsync(QueryInfo<T> queryInfo)
+        public async Task<IList<T>> SearchAsync(FindRequest<T> request)
         {
 
-            var filter = buildFilterDefinition(queryInfo);
-            var sort = buildSortingDefinition(queryInfo);
-            return await SearchAsync(filter, sort);
+            var filter = buildFilterDefinition(request);
+            var sort = buildSortingDefinition(request);
+            return await SearchAsync(filter, sort, request.Skip,request.Take);
         }
 
         /// <summary>
@@ -108,7 +116,7 @@ namespace Vb.Mongo.Engine.Db
         /// </summary>
         /// <param name="queryInfo">The query information that describes the requested search</param>
         /// <returns>MongoDB Filter definition for T</returns>
-        FilterDefinition<T> buildFilterDefinition(QueryInfo<T> queryInfo)
+        FilterDefinition<T> buildFilterDefinition(FindRequest<T> queryInfo)
         {
             var filter = Builders<T>.Filter;
             FilterDefinition<T> filterDef = null;
@@ -177,7 +185,7 @@ namespace Vb.Mongo.Engine.Db
         /// </summary>
         /// <param name="queryInfo">The query information that describes the requested search</param>
         /// <returns>MongoDB Filter definition for T</returns>
-        SortDefinition<T> buildSortingDefinition(QueryInfo<T> queryInfo)
+        SortDefinition<T> buildSortingDefinition(FindRequest<T> queryInfo)
         {
             SortDefinition<T> sortDef = null;
 
