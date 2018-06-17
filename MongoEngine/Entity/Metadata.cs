@@ -1,4 +1,5 @@
-﻿using System;
+﻿using MongoDB.Bson;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Linq.Expressions;
@@ -7,7 +8,7 @@ using System.Text;
 
 namespace Vb.Mongo.Engine.Entity
 {
-    class Metadata
+    internal class Metadata
     {
         /// <summary>
         /// Read the custom attribute of a type
@@ -48,7 +49,7 @@ namespace Vb.Mongo.Engine.Entity
         /// <summary>
         /// Generate the expression prop=>prop.pPropertyName
         /// </summary>
-        /// <typeparam name="T">The class we want to extract the property</typeparam>
+        /// <typeparam name="T">Entity type</typeparam>
         /// <param name="pPropertyName">The property name</param>
         /// <returns>The expression prop=>prop.[pPropertyName] </returns>
         public static Expression<Func<T, object>> PropertyExpression<T>(string pPropertyName)
@@ -59,6 +60,68 @@ namespace Vb.Mongo.Engine.Entity
             var conversion = Expression.Convert(property, typeof(object));
             var lambda = Expression.Lambda<Func<T, object>>(conversion, parameter);
             return lambda;
+        }
+
+        /// <summary>
+        /// Using a member Expression like x=>x.Property get x.Property value of the entity
+        /// </summary>
+        /// <typeparam name="T">Entity type</typeparam>
+        /// <param name="idField">Expression</param>
+        /// <param name="entity">Entity that we want to get the value using the expression</param>
+        /// <returns></returns>
+        public static object ObjectValue<T>(Expression<Func<T, object>> expression, T entity)
+        {
+            var memberExp = GetMemberInfo(expression);
+            var propertyInfo = memberExp.Member as PropertyInfo;
+            var item = propertyInfo.GetValue(entity, null);
+            return item;
+        }
+
+        /// <summary>
+        /// Compare an Id expression of an mongoDb entity to check if this entity is null
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <param name="idField"></param>
+        /// <param name="entity"></param>
+        /// <returns></returns>
+        public static bool EmptyMongoId<T>(Expression<Func<T, object>> idField, T entity)
+        {
+            var memberExp = GetMemberInfo(idField);
+
+            var item = Expression.PropertyOrField(Expression.Constant(entity), memberExp.Member.Name);
+            var objPropExp = Expression.Constant((object)ObjectId.Empty);// 
+            var equalExp = Expression.Equal(item, objPropExp);
+            var lambda = Expression.Lambda<Func<bool>>(equalExp);
+            var result = (bool)lambda.Compile().DynamicInvoke();
+            return result;
+        }
+
+        /// <summary>
+        /// Returns the Member Expression of a method lamda expression
+        /// </summary>
+        /// <param name="method">the method expression</param>
+        /// <returns>MemberExpression or null if the expression is invalid</returns>
+        public static MemberExpression GetMemberInfo(Expression method)
+        {
+            LambdaExpression lambda = method as LambdaExpression;
+            if (lambda != null)
+            {
+
+                MemberExpression memberExpr = null;
+
+                if (lambda.Body.NodeType == ExpressionType.Convert)
+                {
+                    memberExpr =
+                        ((UnaryExpression)lambda.Body).Operand as MemberExpression;
+                }
+                else if (lambda.Body.NodeType == ExpressionType.MemberAccess)
+                {
+                    memberExpr = lambda.Body as MemberExpression;
+                }
+
+                return memberExpr;
+            }
+            return null;
         }
     }
 }

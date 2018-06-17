@@ -3,7 +3,9 @@ using MongoDB.Bson.Serialization;
 using MongoDB.Driver;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Linq.Expressions;
+using System.Reflection;
 using System.Text;
 using System.Threading.Tasks;
 using Vb.Mongo.Engine.Entity;
@@ -61,7 +63,7 @@ namespace Vb.Mongo.Engine.Db
         }
 
         /// <summary>
-        /// Stores a set of Data in Data Base async
+        /// Stores a set of Data in Data Base asynchrony
         /// </summary>
         /// <param name="items">Data to store</param>
         public async Task StoreAsync(IList<T> items)
@@ -71,18 +73,83 @@ namespace Vb.Mongo.Engine.Db
         }
 
         /// <summary>
-        /// Updates or inserts an item in database
+        /// Replaces an item in database with the given one
         /// </summary>
+        /// <param name="idField">Id Field expression</param>
         /// <param name="item">Data to insert or store</param>
-        public async Task<long> UpsertAsync(Expression<Func<T, T>> idField, T item)
+        public long Replace(Expression<Func<T, object>> idField, T item)
         {
             var collection = _db.GetCollection<T>(nameof(T));
-            var filter = Builders<T>.Filter.Eq(idField, item );
-            var options = new UpdateOptions { IsUpsert = true };
-            var result=await collection.ReplaceOneAsync(filter, item, options);
-            return result.IsModifiedCountAvailable ? result.MatchedCount : 0;
+            var filter = Builders<T>.Filter.Eq(idField, Metadata.ObjectValue(idField, item));
+            var options = new UpdateOptions { IsUpsert = false };
+            var result = collection.ReplaceOne(filter, item, options);
+            return result.IsAcknowledged ? result.MatchedCount : 0;
         }
 
+        /// <summary>
+        /// Replaces an item in database with the given one asynchrony
+        /// </summary>
+        /// <param name="idField">Id Field expression</param>
+        /// <param name="item">Data to insert or store</param>
+        public async Task<long> ReplaceAsync(Expression<Func<T, object>> idField, T item)
+        {
+            var collection = _db.GetCollection<T>(nameof(T));
+            var filter = Builders<T>.Filter.Eq(idField, Metadata.ObjectValue(idField, item));
+            var options = new UpdateOptions { IsUpsert = false };
+            var result = await collection.ReplaceOneAsync(filter, item, options);
+            return result.IsAcknowledged ? result.MatchedCount : 0;
+        }
+
+        /// <summary>
+        /// Updates or inserts a collection of items in database
+        /// </summary>
+        /// <param name="idField">Id Field expression</param>
+        /// <param name="items">Data to insert or store</param>
+        public void Bulk(Expression<Func<T, object>> idField, IList<T> items)
+        {
+            var collection = _db.GetCollection<T>(nameof(T));
+            var options = new BulkWriteOptions { IsOrdered = true };
+            var writeModel = BulkCollection(idField, items);
+            var result = collection.BulkWrite(writeModel, options);
+        }
+
+        /// <summary>
+        /// Updates or inserts a collection of items in database asynchrony
+        /// </summary>
+        /// <param name="idField">Id Field expression</param>
+        /// <param name="items">Data to insert or store</param>
+        public async Task BulkAsync(Expression<Func<T, object>> idField, IList<T> items)
+        {
+            var collection = _db.GetCollection<T>(nameof(T));
+            var options = new BulkWriteOptions { IsOrdered = true };
+            var writeModel = BulkCollection(idField, items);
+            var result = await collection.BulkWriteAsync(writeModel, options);
+        }
+
+        /// <summary>
+        /// Generates writemodel for bulk operation
+        /// </summary>
+        /// <param name="idField">Expression for the mongoId Object</param>
+        /// <param name="items">List for the items that will be inserted with a bulk operation</param>
+        /// <returns>Write Model</returns>
+        private IEnumerable<WriteModel<T>> BulkCollection(Expression<Func<T, object>> idField, IList<T> items)
+        {
+            var writeModel = new List<WriteModel<T>>();
+
+            foreach (var c in items)
+            {
+                if (Metadata.EmptyMongoId(idField, c))
+                {//Insert cause Upsert is retarded with Empty ObjectId and tries to update it
+                    writeModel.Add(new InsertOneModel<T>(c));
+                }
+                else
+                {
+                    writeModel.Add(new ReplaceOneModel<T>(Builders<T>.Filter.Eq(idField, Metadata.ObjectValue(idField, c)), c) { IsUpsert = false });
+                }
+            }
+
+            return writeModel;
+        }
         #endregion
 
         #region Delete Data
