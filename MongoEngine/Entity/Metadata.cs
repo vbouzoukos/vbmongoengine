@@ -89,7 +89,12 @@ namespace Vb.Mongo.Engine.Entity
             var memberExp = GetMemberInfo(idField);
 
             var item = Expression.PropertyOrField(Expression.Constant(entity), memberExp.Member.Name);
-            var objPropExp = Expression.Constant((object)ObjectId.Empty);// 
+            object constant = null;
+            if (item.Type == typeof(ObjectId))
+            {
+                constant = (object)ObjectId.Empty;
+            }
+            var objPropExp = Expression.Constant(constant);
             var equalExp = Expression.Equal(item, objPropExp);
             var lambda = Expression.Lambda<Func<bool>>(equalExp);
             var result = (bool)lambda.Compile().DynamicInvoke();

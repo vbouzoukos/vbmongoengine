@@ -5,8 +5,6 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Linq.Expressions;
-using System.Reflection;
-using System.Text;
 using System.Threading.Tasks;
 using Vb.Mongo.Engine.Entity;
 using Vb.Mongo.Engine.Find;
@@ -49,6 +47,17 @@ namespace Vb.Mongo.Engine.Db
                 return _db.GetCollection<T>(nameof(T));
             }
         }
+
+        /// <summary>
+        /// Filter Builder for T instance
+        /// </summary>
+        public FilterDefinitionBuilder<T> FilterBuilder
+        {
+            get
+            {
+                return Builders<T>.Filter;
+            }
+        }
         #endregion
 
         #region Store Data
@@ -58,8 +67,7 @@ namespace Vb.Mongo.Engine.Db
         /// <param name="pItems">Data to store</param>
         public void Store(IList<T> items)
         {
-            var collection = _db.GetCollection<T>(nameof(T));
-            collection.InsertMany(items);
+            Collection.InsertMany(items);
         }
 
         /// <summary>
@@ -68,8 +76,7 @@ namespace Vb.Mongo.Engine.Db
         /// <param name="items">Data to store</param>
         public async Task StoreAsync(IList<T> items)
         {
-            var collection = _db.GetCollection<T>(nameof(T));
-            await collection.InsertManyAsync(items);
+            await Collection.InsertManyAsync(items);
         }
 
         /// <summary>
@@ -79,10 +86,9 @@ namespace Vb.Mongo.Engine.Db
         /// <param name="item">Data to insert or store</param>
         public long Replace(Expression<Func<T, object>> idField, T item)
         {
-            var collection = _db.GetCollection<T>(nameof(T));
             var filter = Builders<T>.Filter.Eq(idField, Metadata.ObjectValue(idField, item));
             var options = new UpdateOptions { IsUpsert = false };
-            var result = collection.ReplaceOne(filter, item, options);
+            var result = Collection.ReplaceOne(filter, item, options);
             return result.IsAcknowledged ? result.MatchedCount : 0;
         }
 
@@ -93,10 +99,9 @@ namespace Vb.Mongo.Engine.Db
         /// <param name="item">Data to insert or store</param>
         public async Task<long> ReplaceAsync(Expression<Func<T, object>> idField, T item)
         {
-            var collection = _db.GetCollection<T>(nameof(T));
             var filter = Builders<T>.Filter.Eq(idField, Metadata.ObjectValue(idField, item));
             var options = new UpdateOptions { IsUpsert = false };
-            var result = await collection.ReplaceOneAsync(filter, item, options);
+            var result = await Collection.ReplaceOneAsync(filter, item, options);
             return result.IsAcknowledged ? result.MatchedCount : 0;
         }
 
@@ -107,10 +112,9 @@ namespace Vb.Mongo.Engine.Db
         /// <param name="items">Data to insert or store</param>
         public void Bulk(Expression<Func<T, object>> idField, IList<T> items)
         {
-            var collection = _db.GetCollection<T>(nameof(T));
             var options = new BulkWriteOptions { IsOrdered = true };
             var writeModel = BulkCollection(idField, items);
-            var result = collection.BulkWrite(writeModel, options);
+            var result = Collection.BulkWrite(writeModel, options);
         }
 
         /// <summary>
@@ -120,10 +124,9 @@ namespace Vb.Mongo.Engine.Db
         /// <param name="items">Data to insert or store</param>
         public async Task BulkAsync(Expression<Func<T, object>> idField, IList<T> items)
         {
-            var collection = _db.GetCollection<T>(nameof(T));
             var options = new BulkWriteOptions { IsOrdered = true };
             var writeModel = BulkCollection(idField, items);
-            var result = await collection.BulkWriteAsync(writeModel, options);
+            var result = await Collection.BulkWriteAsync(writeModel, options);
         }
 
         /// <summary>
@@ -144,7 +147,7 @@ namespace Vb.Mongo.Engine.Db
                 }
                 else
                 {
-                    writeModel.Add(new ReplaceOneModel<T>(Builders<T>.Filter.Eq(idField, Metadata.ObjectValue(idField, c)), c) { IsUpsert = false });
+                    writeModel.Add(new ReplaceOneModel<T>(Builders<T>.Filter.Eq(idField, Metadata.ObjectValue(idField, c)), c) { IsUpsert = true });
                 }
             }
 
@@ -161,8 +164,7 @@ namespace Vb.Mongo.Engine.Db
         public long Delete(FindRequest<T> request)
         {
             var filter = buildFilterDefinition(request);
-            var collection = _db.GetCollection<T>(nameof(T));
-            var result = collection.DeleteMany(filter);
+            var result = Collection.DeleteMany(filter);
             return result.DeletedCount;
         }
 
@@ -174,8 +176,7 @@ namespace Vb.Mongo.Engine.Db
         public async Task<long> DeleteAsync(FindRequest<T> request)
         {
             var filter = buildFilterDefinition(request);
-            var collection = _db.GetCollection<T>(nameof(T));
-            var result = await collection.DeleteManyAsync(filter);
+            var result = await Collection.DeleteManyAsync(filter);
             return result.DeletedCount;
         }
         #endregion
@@ -189,14 +190,13 @@ namespace Vb.Mongo.Engine.Db
         /// <returns>Results List</returns>
         public async Task<IList<T>> SearchAsync(FilterDefinition<T> filter, SortDefinition<T> sorting = null, int? skip = null, int? take = null)
         {
-            var collection = _db.GetCollection<T>(nameof(T));
             var options = new FindOptions<T>
             {
                 Sort = sorting,
                 Limit = take,
                 Skip = skip
             };
-            using (var cursor = await collection.FindAsync(filter, options))
+            using (var cursor = await Collection.FindAsync(filter, options))
             {
                 var result = cursor.ToList();
                 return result;

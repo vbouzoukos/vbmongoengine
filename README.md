@@ -41,7 +41,7 @@ This creates an instance of the TestItem entity and will be mapped to the corres
 ### Search in Mongo DB
 
 
-In order to search for Data you ll need a QueryInfo instance that contains the search information
+In order to search for Data you ll need a FindRequest instance that contains the search information
 
 **Filtering Criteria**
 In order to add filters into the search use the AddCriteria function like the following
@@ -49,7 +49,7 @@ example:
 
             query.AddCriteria("Name", "beta");
 
-This set the query to search for items Field whose field attribute Name is Equal to "beta"
+This set the query to search for items whose field attribute Name is Equal to "beta"
 
 **AddCriteria** accepts the following parameters
 
@@ -78,7 +78,7 @@ You can define more than one Sort fields eg Sort first by name Ascending and nex
 
 To perform the Search you simply call the **Core** function **Search** with the QueryInfo instance of your search like the example below:
 
-            query = new QueryInfo<TestItem>();
+            query = new FindRequest<TestItem>();
             query.AddCriteria("Name", "beta", EnOperator.Or);
             query.AddCriteria("FieldA", "item5", EnOperator.Or);
             query.AddSort("Name");
