@@ -330,6 +330,8 @@ namespace Vb.Mongo.Engine.Db
                         break;
                 }
             }
+            if (filterDef == null)
+                filterDef = filter.Empty;
             return filterDef;
         }
 
