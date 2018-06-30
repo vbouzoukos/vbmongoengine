@@ -29,10 +29,13 @@ namespace Vb.Mongo.Engine.Db
         {
             _dbName = pDbName;
             _db = Settings.Instance.Client.GetDatabase(_dbName);
-            BsonClassMap.RegisterClassMap<T>(cm =>
+            if (!BsonClassMap.IsClassMapRegistered(typeof(T)))
             {
-                cm.AutoMap();
-            });
+                BsonClassMap.RegisterClassMap<T>(cm =>
+                {
+                    cm.AutoMap();
+                });
+            }
         }
         #endregion
 
@@ -182,6 +185,26 @@ namespace Vb.Mongo.Engine.Db
         #endregion
 
         #region Search
+        /// <summary>
+        /// Async get all data of Collection
+        /// </summary>
+        public async Task<IList<T>> AllDataAsync()
+        {
+            using (var cursor = await Collection.FindAsync(_ => true))
+            {
+                var result = cursor.ToList();
+                return result;
+            }
+        }
+
+        /// <summary>
+        /// Get all data of collection
+        /// </summary>
+        public IList<T> AllData()
+        {
+            return Task.Run(async () => { return await AllDataAsync(); }).Result;
+        }
+
         /// <summary>
         /// Core Async search in MongoDB
         /// </summary>
