@@ -291,12 +291,22 @@ namespace Vb.Mongo.Engine.Find
 		#endregion
 
 		#region Search
+        /// <summary>
+        /// Executes the find request async.
+        /// </summary>
+        /// <returns>Search result</returns>
+        /// <param name="dbName">Db name.</param>
 		public async Task<IList<T>> ExecuteAsync(string dbName)
 		{
 			var db = new Core<T>(dbName);
 			return await db.SearchAsync(this);
 		}
 
+		/// <summary>
+        /// Executes the find request.
+        /// </summary>
+        /// <returns>Search result</returns>
+        /// <param name="dbName">Db name.</param>
 		public IList<T> Execute(string dbName)
         {
             var db = new Core<T>(dbName);
