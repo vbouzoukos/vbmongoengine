@@ -9,3 +9,4 @@ version 0.2
 
 	Support async Search
 	Paging and max results. Default can be set in Settings
+	Added Delete and Update options
