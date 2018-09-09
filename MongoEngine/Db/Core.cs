@@ -17,8 +17,8 @@ namespace Vb.Mongo.Engine.Db
     /// <typeparam name="T">The Entity stored in mongoDb</typeparam>
     public class Core<T> where T : class
     {
-        private string _dbName;
-        static IMongoDatabase _db = null;
+        string _dbName;
+        IMongoDatabase _db = null;
 
         #region Constructor
         /// <summary>
@@ -166,7 +166,7 @@ namespace Vb.Mongo.Engine.Db
         /// <returns>Count of deleted items</returns>
         public long Delete(FindRequest<T> request)
         {
-            var filter = buildFilterDefinition(request);
+			var filter = request.buildFilterDefinition();
             var result = Collection.DeleteMany(filter);
             return result.DeletedCount;
         }
@@ -178,7 +178,7 @@ namespace Vb.Mongo.Engine.Db
         /// <returns>Count of deleted items</returns>
         public async Task<long> DeleteAsync(FindRequest<T> request)
         {
-            var filter = buildFilterDefinition(request);
+			var filter = request.buildFilterDefinition();
             var result = await Collection.DeleteManyAsync(filter);
             return result.DeletedCount;
         }
@@ -254,113 +254,12 @@ namespace Vb.Mongo.Engine.Db
         /// <returns>The query information that describes the requested search<</returns>
         public async Task<IList<T>> SearchAsync(FindRequest<T> request)
         {
-
-            var filter = buildFilterDefinition(request);
-            var sort = buildSortingDefinition(request);
+            
+			var filter = request.buildFilterDefinition();
+			var sort = request.buildSortingDefinition();
             return await SearchAsync(filter, sort, request.Skip, request.Take);
         }
         #endregion
 
-        #region MongoDb Definitions (Filter Sort)
-
-        /// <summary>
-        /// Generate a filter definition from a Query Information
-        /// </summary>
-        /// <param name="request">The query information that describes the requested search</param>
-        /// <returns>MongoDB Filter definition for T</returns>
-        FilterDefinition<T> buildFilterDefinition(FindRequest<T> request)
-        {
-            var filter = Builders<T>.Filter;
-            FilterDefinition<T> filterDef = null;
-            foreach (var criteria in request.Fields)
-            {
-                FilterDefinition<T> token = null;
-                switch (criteria.Compare)
-                {
-                    case EnComparator.Like:
-                        token = filter.Regex(criteria.Field, BsonRegularExpression.Create(criteria.Value));
-                        break;
-                    case EnComparator.GreaterThan:
-                        token = filter.Gt(criteria.Field, BsonValue.Create(criteria.Value));
-                        break;
-                    case EnComparator.LessThan:
-                        token = filter.Lt(criteria.Field, BsonValue.Create(criteria.Value));
-                        break;
-                    default:
-                        token = filter.Eq(criteria.Field, BsonValue.Create(criteria.Value));
-                        break;
-                }
-                switch (criteria.Operator)
-                {
-                    case EnOperator.And:
-                        {
-                            if (filterDef == null)
-                            {
-                                filterDef = filter.And(token); ;
-                            }
-                            else
-                            {
-                                filterDef &= token;
-                            }
-                        }
-                        break;
-                    case EnOperator.Or:
-                        {
-                            if (filterDef == null)
-                            {
-                                filterDef = filter.Or(token);
-                            }
-                            else
-                            {
-                                filterDef |= token;
-                            }
-                        }
-                        break;
-                    case EnOperator.Not:
-                        {
-                            if (filterDef == null)
-                            {
-                                filterDef = filter.Not(token);
-                            }
-                            else
-                            {
-                                filterDef &= filter.Not(token);
-                            }
-                        }
-                        break;
-                }
-            }
-            if (filterDef == null)
-                filterDef = filter.Empty;
-            return filterDef;
-        }
-
-        /// <summary>
-        /// Generate a sort definition from a Query Information
-        /// </summary>
-        /// <param name="request">The query information that describes the requested search</param>
-        /// <returns>MongoDB Filter definition for T</returns>
-        SortDefinition<T> buildSortingDefinition(FindRequest<T> request)
-        {
-            SortDefinition<T> sortDef = null;
-
-			if (request.SortFields.Count > 0)
-            {
-                var sortBuilder = Builders<T>.Sort;
-                foreach (var sortField in request.SortFields)
-                {
-                    if (sortDef == null)
-                    {
-                        sortDef = (sortField.Ascending) ? sortBuilder.Ascending(sortField.Field) : sortBuilder.Descending(sortField.Field);
-                    }
-                    else
-                    {
-                        sortDef = (sortField.Ascending) ? sortDef.Ascending(sortField.Field) : sortDef.Descending(sortField.Field);
-                    }
-                }
-            }
-            return sortDef;
-        }
-        #endregion
-    }
+     }
 }
