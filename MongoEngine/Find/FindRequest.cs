@@ -15,7 +15,7 @@ namespace Vb.Mongo.Engine.Find
     {
         #region Properties
         internal IList<QueryField> Fields { get; set; } = new List<QueryField>();
-        internal IList<Sorting> Sort { get; set; } = new List<Sorting>();
+		internal IList<Sorting> SortFields { get; set; } = new List<Sorting>();
 
         internal int? Skip { get; set; }
         internal int? Take { get; set; }
@@ -136,24 +136,55 @@ namespace Vb.Mongo.Engine.Find
 
         #region Search Information functionality
         /// <summary>
-        /// Insert a search criteria condition into the query information
+		/// Insert a search OR condition into the find request
         /// </summary>
+        /// <returns>FindRequest with new search operator</returns>
+		/// <param name="field">The search field</param>
+		/// <param name="value">The query value</param>
+		/// <param name="compare">Comparison between data and value to satisfy the criteria</param>
+		public FindRequest<T> Or(Expression<Func<T, object>> field, object value, EnComparator compare = EnComparator.EqualTo)
+        {
+            var fieldName = Metadata.GetMemberInfo(field).Member.Name;
+            Fields.Add(new QueryField(fieldName, value, EnOperator.Or, compare));
+            return this;
+        }
+		/// <summary>
+        /// Insert a search OR condition into the find request
+        /// </summary>
+        /// <returns>FindRequest with new search operator</returns>
         /// <param name="field">The search field</param>
         /// <param name="value">The query value</param>
-        /// <param name="logicOperator">The logical operator AND, Or , NOT</param>
         /// <param name="compare">Comparison between data and value to satisfy the criteria</param>
-        public void AddCriteria(string field, object value, EnOperator logicOperator = EnOperator.And, EnComparator compare = EnComparator.EqualTo)
+		public FindRequest<T> And(Expression<Func<T, object>> field, object value, EnComparator compare = EnComparator.EqualTo)
         {
-            Fields.Add(new QueryField(field, value, logicOperator, compare));
+            var fieldName = Metadata.GetMemberInfo(field).Member.Name;
+            Fields.Add(new QueryField(fieldName, value, EnOperator.And, compare));
+            return this;
         }
-        /// <summary>
+		/// <summary>
+        /// Insert a search OR condition into the find request
+        /// </summary>
+        /// <returns>FindRequest with new search operator</returns>
+        /// <param name="field">The search field</param>
+        /// <param name="value">The query value</param>
+        /// <param name="compare">Comparison between data and value to satisfy the criteria</param>
+		public FindRequest<T> Not(Expression<Func<T, object>> field, object value, EnComparator compare = EnComparator.EqualTo)
+        {
+            var fieldName = Metadata.GetMemberInfo(field).Member.Name;
+            Fields.Add(new QueryField(fieldName, value, EnOperator.Not, compare));
+            return this;
+        }
+		/// <summary>
         /// Add a field into the sorting of result
         /// </summary>
+		/// <returns>FindRequest with new sorting option</returns>
         /// <param name="field">The sort field</param>
         /// <param name="ascending">True if direction of sort is Asceding use false for Descending(Default is True)</param>
-        public void AddSort(string field, bool ascending = true)
+		public FindRequest<T> Sort(Expression<Func<T, object>> field, bool ascending = true)
         {
-            Sort.Add(new Sorting(field, ascending));
+            var fieldName = Metadata.GetMemberInfo(field).Member.Name;
+			SortFields.Add(new Sorting(fieldName, ascending));
+            return this;
         }
         #endregion
     }

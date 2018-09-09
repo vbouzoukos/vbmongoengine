@@ -344,10 +344,10 @@ namespace Vb.Mongo.Engine.Db
         {
             SortDefinition<T> sortDef = null;
 
-            if (request.Sort.Count > 0)
+			if (request.SortFields.Count > 0)
             {
                 var sortBuilder = Builders<T>.Sort;
-                foreach (var sortField in request.Sort)
+                foreach (var sortField in request.SortFields)
                 {
                     if (sortDef == null)
                     {
