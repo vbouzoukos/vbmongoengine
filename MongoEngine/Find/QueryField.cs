@@ -14,19 +14,19 @@ namespace Vb.Mongo.Engine.Find
         /// <summary>
         /// The search field
         /// </summary>
-        public string Field { get; set; }
+		internal string Field { get; set; }
         /// <summary>
         /// 
         /// </summary>
-        public object Value { get; set; }
+		internal object Value { get; set; }
         /// <summary>
         /// The logical operator AND, Or, NOT
         /// </summary>
-        public EnOperator Operator { get; set; }
+        internal EnOperator Operator { get; set; }
         /// <summary>
         /// Comparison between data and value to satisfy the criteria
         /// </summary>
-        public EnComparator Compare { get; set; }
+		internal EnComparator Compare { get; set; }
         /// <summary>
         /// Constructor
         /// </summary>
@@ -34,7 +34,7 @@ namespace Vb.Mongo.Engine.Find
         /// <param name="value">The query value</param>
         /// <param name="logicOperator">The logical operator AND, Or, NOT</param>
         /// <param name="compare">Comparison between data and value to satisfy the criteria</param>
-        public QueryField(string field, object value, EnOperator logicOperator, EnComparator compare)
+		internal QueryField(string field, object value, EnOperator logicOperator, EnComparator compare)
         {
             Field = field;
             Value = value;

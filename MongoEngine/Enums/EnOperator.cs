@@ -1,18 +1,18 @@
 ﻿/// <summary>
-/// 
+/// Logic operation
 /// </summary>
-public enum EnOperator
+internal enum EnOperator
 {
     /// <summary>
-    /// 
+    /// Must have this value
     /// </summary>
     And,
     /// <summary>
-    /// 
+    /// Should have this value
     /// </summary>
     Or,
     /// <summary>
-    /// 
+    /// Must not have this value
     /// </summary>
     Not
 }
