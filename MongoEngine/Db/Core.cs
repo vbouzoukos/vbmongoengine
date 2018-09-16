@@ -67,7 +67,7 @@ namespace Vb.Mongo.Engine.Db
         /// <summary>
         /// Stores a set of Data in Data Base
         /// </summary>
-        /// <param name="pItems">Data to store</param>
+        /// <param name="items">Data to store</param>
         public void Store(IList<T> items)
         {
             Collection.InsertMany(items);
