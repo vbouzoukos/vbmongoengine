@@ -55,7 +55,11 @@ namespace Vb.Mongo.Engine.Entity
         public static Expression<Func<T, object>> PropertyExpression<T>(string pPropertyName)
         {
             var parameter = Expression.Parameter(typeof(T));
+#if NETSTANDARD1_5 || NETSTANDARD1_6
+            PropertyInfo prop = typeof(T).GetTypeInfo().GetProperty(pPropertyName);
+#else
             PropertyInfo prop = typeof(T).GetProperty(pPropertyName);
+#endif
             var property = Expression.Property(parameter, prop);
             var conversion = Expression.Convert(property, typeof(object));
             var lambda = Expression.Lambda<Func<T, object>>(conversion, parameter);

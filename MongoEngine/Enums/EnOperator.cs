@@ -14,5 +14,9 @@ internal enum EnOperator
     /// <summary>
     /// Must not have this value
     /// </summary>
-    Not
+    Not,
+    /// <summary>
+    /// The main criterion will behave like And Operator
+    /// </summary>
+    Find
 }

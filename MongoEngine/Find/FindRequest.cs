@@ -135,17 +135,23 @@ namespace Vb.Mongo.Engine.Find
 				Take = _itemsPerPage;
 			}
 		}
-		#endregion
+        #endregion
 
-		#region Search Information functionality
-		/// <summary>
-		/// Insert a search OR condition into the find request
-		/// </summary>
-		/// <returns>FindRequest with new search operator</returns>
-		/// <param name="field">The search field</param>
-		/// <param name="value">The query value</param>
-		/// <param name="compare">Comparison between data and value to satisfy the criteria</param>
-		public FindRequest<T> Or(Expression<Func<T, object>> field, object value, EnComparator compare = EnComparator.EqualTo)
+        #region Search Information functionality
+        public FindRequest<T> Find(Expression<Func<T, object>> field, object value, EnComparator compare = EnComparator.EqualTo)
+        {
+            var fieldName = Metadata.GetMemberInfo(field).Member.Name;
+            Fields.Add(new QueryField(fieldName, value, EnOperator.Find, compare));
+            return this;
+        }
+        /// <summary>
+        /// Insert a search OR condition into the find request
+        /// </summary>
+        /// <returns>FindRequest with new search operator</returns>
+        /// <param name="field">The search field</param>
+        /// <param name="value">The query value</param>
+        /// <param name="compare">Comparison between data and value to satisfy the criteria</param>
+        public FindRequest<T> Or(Expression<Func<T, object>> field, object value, EnComparator compare = EnComparator.EqualTo)
 		{
 			var fieldName = Metadata.GetMemberInfo(field).Member.Name;
 			Fields.Add(new QueryField(fieldName, value, EnOperator.Or, compare));
@@ -220,11 +226,12 @@ namespace Vb.Mongo.Engine.Find
 				}
 				switch (criteria.Operator)
 				{
-					case EnOperator.And:
-						{
-							if (filterDef == null)
+                    case EnOperator.And:
+                    case EnOperator.Find:
+                        {
+                            if (filterDef == null)
 							{
-								filterDef = filter.And(token); ;
+								filterDef = filter.And(token);
 							}
 							else
 							{
