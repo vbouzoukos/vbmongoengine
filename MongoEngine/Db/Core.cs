@@ -63,6 +63,110 @@ namespace Vb.Mongo.Engine.Db
         }
         #endregion
 
+        #region Indexing
+        /// <summary>
+        /// Creates a unique index
+        /// </summary>
+        /// <param name="name">The name of the unique index</param>
+        /// <param name="field">The field where we set the unique index</param>
+        public void UniqueIndex(string name, Expression<Func<T, object>> field)
+        {
+
+            var query = Collection.Indexes.List();
+            var bsonIndexes = query.ToList();
+            var indexNames = bsonIndexes.Select(i => i["name"]).ToList();
+
+            if (!indexNames.Contains(name))
+            {
+                CreateIndexOptions options = new CreateIndexOptions
+                {
+                    Name = name,
+                    Unique = true
+                };
+                var builder = Builders<T>.IndexKeys;
+                var indexModel = new CreateIndexModel<T>(builder.Ascending(field), options);
+                Collection.Indexes.CreateOne(indexModel);
+            }
+        }
+        #endregion
+
+        #region Session and Transactions
+        /// <summary>
+        /// Execute a block of calls in mongodb in a transaction
+        /// </summary>
+        /// <param name="transactions">Transactions execution code</param>
+        public void Transaction(Action transactions)
+        {
+            using (var session = Settings.Instance.Client.StartSession())
+            {
+                session.StartTransaction();
+                transactions();
+                session.CommitTransaction();
+            }
+        }
+        /// <summary>
+        /// Execute a block of calls in mongodb in a transaction and return the code call result
+        /// </summary>
+        /// <typeparam name="TResult">Return template of this transaction</typeparam>
+        /// <param name="transactions">Transactions execution code</param>
+        /// <returns>The execution result of transactions() call</returns>
+        public TResult Transaction<TResult>(Func<TResult> transactions)
+        {
+            using (var session = Settings.Instance.Client.StartSession())
+            {
+                session.StartTransaction();
+                // execute operations using the session
+                var result = transactions();
+                session.CommitTransaction();
+                return result;
+            }
+        }
+        /// <summary>
+        /// Execute a block of calls in mongodb in a transaction asynchronous
+        /// </summary>
+        /// <param name="transactions">Transactions execution code</param>
+        public async Task TransactionAsync(Action transactions)
+        {
+            using (var session = await Settings.Instance.Client.StartSessionAsync())
+            {
+                try
+                {
+                    transactions();
+                }
+                catch
+                {
+                    await session.AbortTransactionAsync();
+                    throw;
+                }
+                await session.CommitTransactionAsync();
+            }
+        }
+        /// <summary>
+        /// Execute a block of calls in mongodb in a transaction and return the code call result asynchronous
+        /// </summary>
+        /// <typeparam name="TResult">Return template of this transaction</typeparam>
+        /// <param name="transactions">Transactions execution code</param>
+        /// <returns>The execution result of transactions() call</returns>
+        public async Task<TResult> TransactionAsync<TResult>(Func<TResult> transactions)
+        {
+            using (var session = await Settings.Instance.Client.StartSessionAsync())
+            {
+                TResult result;
+                try
+                {
+                    result = transactions();
+                }
+                catch
+                {
+                    await session.AbortTransactionAsync();
+                    throw;
+                }
+                await session.CommitTransactionAsync();
+                return result;
+            }
+        }
+        #endregion
+
         #region Store Data
         /// <summary>
         /// Stores a set of Data in Data Base
@@ -166,7 +270,7 @@ namespace Vb.Mongo.Engine.Db
         /// <returns>Count of deleted items</returns>
         public long Delete(FindRequest<T> request)
         {
-			var filter = request.buildFilterDefinition();
+            var filter = request.buildFilterDefinition();
             var result = Collection.DeleteMany(filter);
             return result.DeletedCount;
         }
@@ -178,7 +282,7 @@ namespace Vb.Mongo.Engine.Db
         /// <returns>Count of deleted items</returns>
         public async Task<long> DeleteAsync(FindRequest<T> request)
         {
-			var filter = request.buildFilterDefinition();
+            var filter = request.buildFilterDefinition();
             var result = await Collection.DeleteManyAsync(filter);
             return result.DeletedCount;
         }
@@ -254,12 +358,12 @@ namespace Vb.Mongo.Engine.Db
         /// <returns>The query information that describes the requested search<</returns>
         public async Task<IList<T>> SearchAsync(FindRequest<T> request)
         {
-            
-			var filter = request.buildFilterDefinition();
-			var sort = request.buildSortingDefinition();
+
+            var filter = request.buildFilterDefinition();
+            var sort = request.buildSortingDefinition();
             return await SearchAsync(filter, sort, request.Skip, request.Take);
         }
         #endregion
 
-     }
+    }
 }

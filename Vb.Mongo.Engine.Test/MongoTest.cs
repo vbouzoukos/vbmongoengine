@@ -418,5 +418,27 @@ namespace Vb.Mongo.Engine.Test
             });
             task.Start();
         }
+        [Fact]
+        public void UniqueIndex()
+        {
+            Settings.Instance.DropDatabase("test");
+            test.UniqueIndex("TestId", x => x.TestId);
+            test.UniqueIndex("TestId", x => x.TestId);
+            var task = new Task(async () =>
+            {
+                await test.StoreAsync(testData);
+                var dbl = new List<TestItem>
+                   {
+                    new TestItem() { Id = new MongoDB.Bson.ObjectId(), Name = "fail", FieldA = "fail", Weight = 1, TestId = 14 ,Children=new List<Child>{ new Child() { Name ="lala"} }  }
+                   };//
+                bool inserted = true;
+                try
+                {
+                    await test.StoreAsync(testData);
+                }
+                catch { inserted = false; }
+                Assert.False(inserted);
+            });
+        }
     }
 }
