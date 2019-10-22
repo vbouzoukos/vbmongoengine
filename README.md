@@ -86,13 +86,13 @@ To perform the Search you simply call the **Core** function **Search** with the 
             
 You can use the SearchAsync in case you need asynchronous results 
 
-###Delete Items
+### Delete Items
 
 In order to delete items from mongoDB use a FindRequest like the above containing the data you wish to delete
 
 	var result = test.Delete(query);
 
-###Update Items
+### Update Items
 Update items is performed using the Replace function in Core like the result bellow
 
 	test.Replace(x=>x.Id, itemUpdated);
@@ -103,7 +103,7 @@ Replace accepts the following data parameters
 **item** The entity that contains the updated data and will be used to replace the old data
 
 Similar are the ReplaceAsync for asynchronous execution and
-###Mass Update or Store
+### Mass Update or Store
 Bulk, BulkAsync(For asynchronus execution) are used to mass insert or update data 
 
 	test.Bulk(x=>x.Id, listOfUpdateAndNew);
@@ -113,6 +113,34 @@ Bulk, BulkAsync(For asynchronus execution) are used to mass insert or update dat
 
 ## Releases
 
-13/05/2018: Version 0.1
+**13/05/2018: Version 0.1**
 
-16/09/2018: Version 0.2
+	First release base functionality Insert items, search items drop database.
+
+**16/09/2018: Version 0.2**
+
+	Breaking changes
+	*Searching functionality is now defined in Vb.Mongo.Engine.Find namespace
+	*Renamed QueryInfo to FindRequest
+    *removed AddCriteria and AddSort replaced with "And" "Or" "Not" and "Sort" functions 
+
+	Support async Search
+	Paging and max results. Default can be set in Settings
+	Added Delete and Update options
+    
+**22/10/2019: Version 0.3**
+
+	Breaking changes
+	*Renamed Core to Container
+    
+	Enhanced searching criteria to include search field as a string
+	You can store an object now instead of list
+	Added unique indexes
+	Added Support for
+        netcoreapp1.1
+        netcoreapp2.1
+        netstandard1.5
+        netstandard1.6
+        netstandard2.0
+        net451
+        net452
