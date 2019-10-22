@@ -144,6 +144,11 @@ namespace Vb.Mongo.Engine.Find
             Fields.Add(new QueryField(fieldName, value, EnOperator.Find, compare));
             return this;
         }
+        public FindRequest<T> Find(string fieldName, object value, EnComparator compare = EnComparator.EqualTo)
+        {
+            Fields.Add(new QueryField(fieldName, value, EnOperator.Find, compare));
+            return this;
+        }
         /// <summary>
         /// Insert a search OR condition into the find request
         /// </summary>
@@ -157,52 +162,72 @@ namespace Vb.Mongo.Engine.Find
 			Fields.Add(new QueryField(fieldName, value, EnOperator.Or, compare));
 			return this;
 		}
-		/// <summary>
-		/// Insert a search OR condition into the find request
-		/// </summary>
-		/// <returns>FindRequest with new search operator</returns>
-		/// <param name="field">The search field</param>
-		/// <param name="value">The query value</param>
-		/// <param name="compare">Comparison between data and value to satisfy the criteria</param>
-		public FindRequest<T> And(Expression<Func<T, object>> field, object value, EnComparator compare = EnComparator.EqualTo)
+        public FindRequest<T> Or(string fieldName, object value, EnComparator compare = EnComparator.EqualTo)
+        {
+            Fields.Add(new QueryField(fieldName, value, EnOperator.Or, compare));
+            return this;
+        }
+        /// <summary>
+        /// Insert a search OR condition into the find request
+        /// </summary>
+        /// <returns>FindRequest with new search operator</returns>
+        /// <param name="field">The search field</param>
+        /// <param name="value">The query value</param>
+        /// <param name="compare">Comparison between data and value to satisfy the criteria</param>
+        public FindRequest<T> And(Expression<Func<T, object>> field, object value, EnComparator compare = EnComparator.EqualTo)
 		{
 			var fieldName = Metadata.GetMemberInfo(field).Member.Name;
 			Fields.Add(new QueryField(fieldName, value, EnOperator.And, compare));
 			return this;
 		}
-		/// <summary>
-		/// Insert a search OR condition into the find request
-		/// </summary>
-		/// <returns>FindRequest with new search operator</returns>
-		/// <param name="field">The search field</param>
-		/// <param name="value">The query value</param>
-		/// <param name="compare">Comparison between data and value to satisfy the criteria</param>
-		public FindRequest<T> Not(Expression<Func<T, object>> field, object value, EnComparator compare = EnComparator.EqualTo)
+        public FindRequest<T> And(string fieldName, object value, EnComparator compare = EnComparator.EqualTo)
+        {
+            Fields.Add(new QueryField(fieldName, value, EnOperator.And, compare));
+            return this;
+        }
+        /// <summary>
+        /// Insert a search OR condition into the find request
+        /// </summary>
+        /// <returns>FindRequest with new search operator</returns>
+        /// <param name="field">The search field</param>
+        /// <param name="value">The query value</param>
+        /// <param name="compare">Comparison between data and value to satisfy the criteria</param>
+        public FindRequest<T> Not(Expression<Func<T, object>> field, object value, EnComparator compare = EnComparator.EqualTo)
 		{
 			var fieldName = Metadata.GetMemberInfo(field).Member.Name;
 			Fields.Add(new QueryField(fieldName, value, EnOperator.Not, compare));
 			return this;
 		}
-		/// <summary>
-		/// Add a field into the sorting of result
-		/// </summary>
-		/// <returns>FindRequest with new sorting option</returns>
-		/// <param name="field">The sort field</param>
-		/// <param name="ascending">True if direction of sort is Asceding use false for Descending(Default is True)</param>
-		public FindRequest<T> Sort(Expression<Func<T, object>> field, bool ascending = true)
+        public FindRequest<T> Not(string fieldName, object value, EnComparator compare = EnComparator.EqualTo)
+        {
+            Fields.Add(new QueryField(fieldName, value, EnOperator.Not, compare));
+            return this;
+        }
+        /// <summary>
+        /// Add a field into the sorting of result
+        /// </summary>
+        /// <returns>FindRequest with new sorting option</returns>
+        /// <param name="field">The sort field</param>
+        /// <param name="ascending">True if direction of sort is Asceding use false for Descending(Default is True)</param>
+        public FindRequest<T> Sort(Expression<Func<T, object>> field, bool ascending = true)
 		{
 			var fieldName = Metadata.GetMemberInfo(field).Member.Name;
 			SortFields.Add(new Sorting(fieldName, ascending));
 			return this;
 		}
-		#endregion
-		#region MongoDb Definitions (Filter Sort)
+        public FindRequest<T> Sort(string fieldName, bool ascending = true)
+        {
+            SortFields.Add(new Sorting(fieldName, ascending));
+            return this;
+        }
+        #endregion
+        #region MongoDb Definitions (Filter Sort)
 
-		/// <summary>
-		/// Generate a filter definition from a Query Information
-		/// </summary>
-		/// <returns>MongoDB Filter definition for T</returns>
-		internal FilterDefinition<T> buildFilterDefinition()
+        /// <summary>
+        /// Generate a filter definition from a Query Information
+        /// </summary>
+        /// <returns>MongoDB Filter definition for T</returns>
+        internal FilterDefinition<T> buildFilterDefinition()
 		{
 			var filter = Builders<T>.Filter;
 			FilterDefinition<T> filterDef = null;
@@ -305,7 +330,7 @@ namespace Vb.Mongo.Engine.Find
         /// <param name="dbName">Db name.</param>
 		public async Task<IList<T>> ExecuteAsync(string dbName)
 		{
-			var db = new Core<T>(dbName);
+			var db = new Container<T>(dbName);
 			return await db.SearchAsync(this);
 		}
 
@@ -316,7 +341,7 @@ namespace Vb.Mongo.Engine.Find
         /// <param name="dbName">Db name.</param>
 		public IList<T> Execute(string dbName)
         {
-            var db = new Core<T>(dbName);
+            var db = new Container<T>(dbName);
             return db.Search(this);
         }
 		#endregion

@@ -11,4 +11,19 @@ version 0.2
 	Support async Search
 	Paging and max results. Default can be set in Settings
 	Added Delete and Update options
-    
+
+version 0.3
+	Breaking changes
+	*Renamed Core to Container
+	
+	Enhanced searching criteria to include search field as a string
+	You can store an object now instead of list
+	Added unique indexes
+	Added Support for 
+	netcoreapp1.1
+	netcoreapp2.1
+	netstandard1.5
+	netstandard1.6
+	netstandard2.0
+	net451
+	net452

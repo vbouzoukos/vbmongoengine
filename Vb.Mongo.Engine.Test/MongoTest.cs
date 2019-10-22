@@ -5,17 +5,18 @@ using System.Threading.Tasks;
 using Vb.Mongo.Engine.Db;
 using Vb.Mongo.Engine.Find;
 using Xunit;
+using MongoDB.Driver;
 
 namespace Vb.Mongo.Engine.Test
 {
     public class MongoTest
     {
-        Core<TestItem> test;
+        Container<TestItem> test;
         List<TestItem> testData;
         public MongoTest()
         {
             Settings.StartUp("mongodb://localhost");
-            test = new Core<TestItem>("test");
+            test = new Container<TestItem>("test");
             testData = new List<TestItem>
                    {
                     new TestItem() { Id = new MongoDB.Bson.ObjectId(), Name = "beta", FieldA = "cccccc", Weight = 99 , TestId = 1 , Children=new List<Child>{ new Child() { Name ="Test"} } },
@@ -420,25 +421,80 @@ namespace Vb.Mongo.Engine.Test
         }
         [Fact]
         public void UniqueIndex()
-        {
-            Settings.Instance.DropDatabase("test");
-            test.UniqueIndex("TestId", x => x.TestId);
-            test.UniqueIndex("TestId", x => x.TestId);
-            var task = new Task(async () =>
+        {//MongoDB.Driver.MongoBulkWriteException
+            var task = Task.Run(async () =>
             {
+                Settings.Instance.DropDatabase("test");
+                test.UniqueIndex("TestId", x => x.TestId);
                 await test.StoreAsync(testData);
                 var dbl = new List<TestItem>
-                   {
-                    new TestItem() { Id = new MongoDB.Bson.ObjectId(), Name = "fail", FieldA = "fail", Weight = 1, TestId = 14 ,Children=new List<Child>{ new Child() { Name ="lala"} }  }
-                   };//
-                bool inserted = true;
-                try
                 {
-                    await test.StoreAsync(testData);
-                }
-                catch { inserted = false; }
-                Assert.False(inserted);
+                    new TestItem()
+                    {
+                        Id = new MongoDB.Bson.ObjectId(),
+                        Name = "fail",
+                        FieldA = "fail",
+                        Weight = 1,
+                        TestId = 14,
+                        Children =new List<Child>
+                        {
+                            new Child()
+                            {
+                                Name ="lala"
+                            }
+                        }
+                    }
+                };
+                await test.StoreAsync(dbl);
             });
+            Assert.ThrowsAsync<MongoBulkWriteException>(async () => await task);
+        }
+        [Fact]
+        public void StoreKeyValue()
+        {
+            var task = Task.Run(async () =>
+            {
+                Settings.Instance.DropDatabase("test_log");
+                var log = new Container<object>("test_log");
+                var obj = new System.Dynamic.ExpandoObject();
+                var props = ((IDictionary<string, object>)obj);
+                props.Add("LogType", "Info");
+                props.Add("Message", "Test key value 2");
+                await log.StoreAsync(new List<object> { obj });
+
+            });
+            Assert.ThrowsAsync<MongoBulkWriteException>(async () => await task);
+        }
+        [Fact]
+        public void StoreUnknownType()
+        {
+            var task = Task.Run(async () =>
+            {
+                Settings.Instance.DropDatabase("test_log");
+                var log = new Container<object>("test_log");
+
+                await log.StoreAsync(new List<object> { new { LogType = "Info", Message = "This is a test" } });
+            });
+            Assert.ThrowsAsync<MongoBulkWriteException>(async () => await task);
+        }
+        [Fact]
+        public void SearchInUkknown()
+        {
+            Settings.Instance.DropDatabase("test_log");
+            var log = new Container<object>("test_log");
+            Task.Run(async () =>
+            {
+                var obj = new { Message = "This is a test" };
+                await log.StoreAsync(new List<object> { obj });
+                var query = new FindRequest<object>();
+                query.Find("Message", "This is a test");
+                var expectedIds = new List<int> { 13, 14 };
+                var result = await log.SearchAsync(query);
+                Assert.Equal(1, result.Count);
+                var created = result[0];
+                var val = ExpressionGererator.ObjectValue("Message", created);
+                Assert.Equal("This is a test", val);
+            }).Wait();
         }
     }
 }

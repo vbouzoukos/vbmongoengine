@@ -15,7 +15,7 @@ namespace Vb.Mongo.Engine.Db
     /// Core mongoDb manager Can search or insert items of type T into the database
     /// </summary>
     /// <typeparam name="T">The Entity stored in mongoDb</typeparam>
-    public class Core<T> where T : class
+    public class Container<T> where T : class
     {
         string _dbName;
         IMongoDatabase _db = null;
@@ -25,7 +25,7 @@ namespace Vb.Mongo.Engine.Db
         /// Constructor
         /// </summary>
         /// <param name="pDbName">The database name</param>
-        public Core(string pDbName)
+        public Container(string pDbName)
         {
             _dbName = pDbName;
             _db = Settings.Instance.Client.GetDatabase(_dbName);
@@ -168,6 +168,22 @@ namespace Vb.Mongo.Engine.Db
         #endregion
 
         #region Store Data
+        /// <summary>
+        /// Stores an item
+        /// </summary>
+        /// <param name="item">Data to store</param>
+        public void Store(T item)
+        {
+            Collection.InsertOne(item);
+        }
+        /// <summary>
+        /// Stores an item asynchronous
+        /// </summary>
+        /// <param name="item">Data to store</param>
+        public async Task StoreAsync(T item)
+        {
+            await Collection.InsertOneAsync(item);
+        }
         /// <summary>
         /// Stores a set of Data in Data Base
         /// </summary>

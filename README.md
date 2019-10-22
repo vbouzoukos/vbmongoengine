@@ -114,4 +114,5 @@ Bulk, BulkAsync(For asynchronus execution) are used to mass insert or update dat
 ## Releases
 
 13/05/2018: Version 0.1
+
 16/09/2018: Version 0.2
