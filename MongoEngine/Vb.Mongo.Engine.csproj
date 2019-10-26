@@ -10,15 +10,15 @@
     <Description>A simple engine to manage a Mongo Database</Description>
     <Authors>Vasileios Bouzoukos</Authors>
     <Company>Vasileios Bouzoukos</Company>
-    <Version>0.3.0</Version>
-    <AssemblyVersion>0.3.0.0</AssemblyVersion>
-    <FileVersion>0.3.0.0</FileVersion>
-    <ReleaseVersion>0.3</ReleaseVersion>
+    <Version>0.4.0</Version>
+    <AssemblyVersion>0.4.0.0</AssemblyVersion>
+    <FileVersion>0.4.0.0</FileVersion>
+    <ReleaseVersion>0.4</ReleaseVersion>
     <PackageLicenseFile>LICENSE.txt</PackageLicenseFile>
   </PropertyGroup>
 
   <ItemGroup Condition="'$(TargetFramework)' == 'netcoreapp1.1' or '$(TargetFramework)' == 'netcoreapp2.1'  or '$(TargetFramework)' == 'netstandard1.5'  or '$(TargetFramework)' == 'netstandard1.6' or '$(TargetFramework)' == 'netstandard2.0' or '$(TargetFramework)' == 'net452' ">
-    <PackageReference Include="MongoDB.Driver" Version="2.9.1" />
+    <PackageReference Include="MongoDB.Driver" Version="2.9.2" />
   </ItemGroup>
   
   <ItemGroup Condition="'$(TargetFramework)' == 'net451'">

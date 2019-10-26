@@ -1,6 +1,7 @@
 ﻿using MongoDB.Bson;
 using MongoDB.Bson.Serialization;
 using MongoDB.Driver;
+using MongoDB.Driver.Linq;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -59,6 +60,16 @@ namespace Vb.Mongo.Engine.Db
             get
             {
                 return Builders<T>.Filter;
+            }
+        }
+        /// <summary>
+        /// LinQ capabilities of MongoDB Driver
+        /// </summary>
+        public IMongoQueryable<T> Queryable
+        {
+            get
+            {
+                return Collection.AsQueryable();
             }
         }
         #endregion
