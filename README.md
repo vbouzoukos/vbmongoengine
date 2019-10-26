@@ -14,10 +14,10 @@ In order to connect into the Mongo DB you ll need to use the StartUp function of
 
 ### Insert Data into Mongo DB database
 
-To insert data into the mongo DB database you need to Set Up a Core instance of the stored entity like the following example
+To insert data into the mongo DB database you need to Set Up a Container instance of the stored entity like the following example
 
-            var test = new Core<TestItem>("test");
-This creates an instance of the TestItem entity and will be mapped to the corresponding mongoDB entity, next you can insert data using the Store function of the Core instance
+            var test = new Container<TestItem>("test");
+This creates an instance of the TestItem entity and will be mapped to the corresponding mongoDB entity, next you can insert data using the Store function of the Container instance
 
             test.Store(
                 new List<TestItem>
@@ -74,7 +74,7 @@ You can define more than one Sort fields eg Sort first by name Ascending and nex
 
             query.Sort(x=>x.Name).Sort(x=>x.Weight, false);
 
-To perform the Search you simply call the **Core** function **Search** with the FindRequest instance of your search like the example below:
+To perform the Search you simply call the **Container** function **Search** with the FindRequest instance of your search like the example below:
 
             query = new FindRequest<TestItem>()
             .query.And(x=>x.Name,"beta")
@@ -93,7 +93,7 @@ In order to delete items from mongoDB use a FindRequest like the above containin
 	var result = test.Delete(query);
 
 ### Update Items
-Update items is performed using the Replace function in Core like the result bellow
+Update items is performed using the Replace function in Container like the result bellow
 
 	test.Replace(x=>x.Id, itemUpdated);
 
