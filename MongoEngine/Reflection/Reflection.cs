@@ -8,7 +8,7 @@ using System.Text;
 
 namespace Vb.Mongo.Engine.Entity
 {
-    internal class Metadata
+    internal class Reflection
     {
         /// <summary>
         /// Read the custom attribute of a type

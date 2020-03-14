@@ -22,9 +22,9 @@ namespace Vb.Mongo.Engine.Find
 
 		internal int? Skip { get; set; }
 		internal int? Take { get; set; }
+        MongoRepository<T> vRepository;
 
-
-		int _page;
+        int _page;
 		/// <summary>
 		/// Current query page
 		/// </summary>
@@ -74,30 +74,24 @@ namespace Vb.Mongo.Engine.Find
 		/// <summary>
 		/// Default Constructor (no paging or limits)
 		/// </summary>
-		public FindRequest()
+		internal FindRequest(MongoRepository<T> context)
 		{
 			Skip = null;
 			Take = null;
-		}
-		/// <summary>
-		/// Paging default limit constructor
-		/// </summary>
-		/// <param name="page">Number of page paging starts from page 1</param>
-		/// <param name="itemsPerPage">Items per page</param>
-		public FindRequest(int page, int itemsPerPage)
-		{
-			setPaging(page, itemsPerPage, Settings.Instance.ResultsLimit);
-		}
+            vRepository = context;
 
-		/// <summary>
-		/// Custom constuctor
-		/// </summary>
-		/// <param name="page">Number of page paging starts from page 1</param>
-		/// <param name="itemsPerPage">Items per page</param>
-		/// <param name="limitUp">Limit search Up to items</param>
-		public FindRequest(int page, int itemsPerPage, int limitUp)
+        }
+
+        /// <summary>
+        /// Custom constuctor
+        /// </summary>
+        /// <param name="page">Number of page paging starts from page 1</param>
+        /// <param name="itemsPerPage">Items per page</param>
+        /// <param name="limitUp">Limit search Up to items</param>
+        internal FindRequest(MongoRepository<T> context, int page, int itemsPerPage, int limitUp)
 		{
-			setPaging(page, itemsPerPage, limitUp);
+            vRepository = context;
+            setPaging(page, itemsPerPage, limitUp);
 		}
 		#endregion
 
@@ -140,7 +134,7 @@ namespace Vb.Mongo.Engine.Find
         #region Search Information functionality
         public FindRequest<T> Find(Expression<Func<T, object>> field, object value, EnComparator compare = EnComparator.EqualTo)
         {
-            var fieldName = Metadata.GetMemberInfo(field).Member.Name;
+            var fieldName = Reflection.GetMemberInfo(field).Member.Name;
             Fields.Add(new QueryField(fieldName, value, EnOperator.Find, compare));
             return this;
         }
@@ -158,7 +152,7 @@ namespace Vb.Mongo.Engine.Find
         /// <param name="compare">Comparison between data and value to satisfy the criteria</param>
         public FindRequest<T> Or(Expression<Func<T, object>> field, object value, EnComparator compare = EnComparator.EqualTo)
 		{
-			var fieldName = Metadata.GetMemberInfo(field).Member.Name;
+			var fieldName = Reflection.GetMemberInfo(field).Member.Name;
 			Fields.Add(new QueryField(fieldName, value, EnOperator.Or, compare));
 			return this;
 		}
@@ -176,7 +170,7 @@ namespace Vb.Mongo.Engine.Find
         /// <param name="compare">Comparison between data and value to satisfy the criteria</param>
         public FindRequest<T> And(Expression<Func<T, object>> field, object value, EnComparator compare = EnComparator.EqualTo)
 		{
-			var fieldName = Metadata.GetMemberInfo(field).Member.Name;
+			var fieldName = Reflection.GetMemberInfo(field).Member.Name;
 			Fields.Add(new QueryField(fieldName, value, EnOperator.And, compare));
 			return this;
 		}
@@ -194,7 +188,7 @@ namespace Vb.Mongo.Engine.Find
         /// <param name="compare">Comparison between data and value to satisfy the criteria</param>
         public FindRequest<T> Not(Expression<Func<T, object>> field, object value, EnComparator compare = EnComparator.EqualTo)
 		{
-			var fieldName = Metadata.GetMemberInfo(field).Member.Name;
+			var fieldName = Reflection.GetMemberInfo(field).Member.Name;
 			Fields.Add(new QueryField(fieldName, value, EnOperator.Not, compare));
 			return this;
 		}
@@ -211,7 +205,7 @@ namespace Vb.Mongo.Engine.Find
         /// <param name="ascending">True if direction of sort is Asceding use false for Descending(Default is True)</param>
         public FindRequest<T> Sort(Expression<Func<T, object>> field, bool ascending = true)
 		{
-			var fieldName = Metadata.GetMemberInfo(field).Member.Name;
+			var fieldName = Reflection.GetMemberInfo(field).Member.Name;
 			SortFields.Add(new Sorting(fieldName, ascending));
 			return this;
 		}
@@ -328,10 +322,9 @@ namespace Vb.Mongo.Engine.Find
         /// </summary>
         /// <returns>Search result</returns>
         /// <param name="dbName">Db name.</param>
-		public async Task<IList<T>> ExecuteAsync(string dbName)
+		public async Task<IList<T>> ExecuteAsync()
 		{
-			var db = new Container<T>(dbName);
-			return await db.SearchAsync(this);
+			return await vRepository.SearchAsync(this);
 		}
 
 		/// <summary>
@@ -339,10 +332,9 @@ namespace Vb.Mongo.Engine.Find
         /// </summary>
         /// <returns>Search result</returns>
         /// <param name="dbName">Db name.</param>
-		public IList<T> Execute(string dbName)
+		public IList<T> Execute()
         {
-            var db = new Container<T>(dbName);
-            return db.Search(this);
+            return vRepository.Search(this);
         }
 		#endregion
 	}

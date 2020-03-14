@@ -11,12 +11,18 @@ namespace Vb.Mongo.Engine.Test
 {
     public class MongoTest
     {
-        Container<TestItem> test;
         List<TestItem> testData;
+        const string connectionString = "mongodb://localhost?replicaSet=rs0";
+
+        const string dbName = "test";
+
         public MongoTest()
         {
-            Settings.StartUp("mongodb://localhost");
-            test = new Container<TestItem>("test");
+            using (var v = CreateContext())
+            {
+                v.AutoMap<TestItem>();
+                v.CreateCollectionIfNotExist(nameof(TestItem));
+            }
             testData = new List<TestItem>
                    {
                     new TestItem() { Id = new MongoDB.Bson.ObjectId(), Name = "beta", FieldA = "cccccc", Weight = 99 , TestId = 1 , Children=new List<Child>{ new Child() { Name ="Test"} } },
@@ -35,74 +41,82 @@ namespace Vb.Mongo.Engine.Test
                     new TestItem() { Id = new MongoDB.Bson.ObjectId(), Name = "teran", FieldA = "aaaaa", Weight = 1, TestId = 14 ,Children=new List<Child>{ new Child() { Name ="lala"} }  }
                    };//
         }
-
+        MongoContext CreateContext()
+        {
+            return new MongoContext(connectionString, dbName);
+        }
         [Fact]
         public void CRUD()
         {
-            Settings.Instance.DropDatabase("test");
             var task = new Task(async () =>
             {
-                IList<TestItem> expected = new List<TestItem>
+                using (var dbCtx = CreateContext())
                 {
-                    new TestItem()
-                    {
-                            Name = "beta",
-                            FieldA = "cccccc",
-                            Weight = 99 ,
-                            TestId = 111 ,
-                            Children =new List<Child>{ new Child() { Name ="Test"}
-                    }
-                    }
-                };
+                    dbCtx.Purge();
+                    var repo = dbCtx.CreateRepository<TestItem>(t => t.Id);
 
-                //insert the item
-                await test.StoreAsync(expected);
-                //find the item
-                {
-                    var query = new FindRequest<TestItem>();
-                    query.Find(x => x.TestId, 111);
-                    var result = await test.SearchAsync(query);
-                    Assert.Equal(expected.Count, result.Count);
-                    for (int i = 0; i < expected.Count; i++)
+                    IList<TestItem> expected = new List<TestItem>
                     {
-                        var original = expected[i];
-                        var created = result[i];
-                        Assert.Equal(original.Id, created.Id);
-                        Assert.Equal(original.Name, created.Name);
-                        Assert.Equal(original.FieldA, created.FieldA);
-                        Assert.Equal(original.Weight, created.Weight);
-                        Assert.Equal(original.Children[0].Name, created.Children[0].Name);
-                    }
-                    expected = result;
-                }
-                //update the item
-                expected[0].Name = "omega";
-                expected[0].FieldA = "omega";
-                expected[0].Weight = 3;
-                expected[0].Children = new List<Child>() { new Child() { Name = "Updated" }, new Child() { Name = "MoreChild" } };
-                await test.ReplaceAsync(x => x.Id, expected[0]);
-                {
-                    var query = new FindRequest<TestItem>();
-                    query.Find(x => x.TestId, 111);
-                    var result = await test.SearchAsync(query);
-                    Assert.Equal(expected.Count, result.Count);
-                    for (int i = 0; i < expected.Count; i++)
+                        new TestItem()
+                        {
+                                Name = "beta",
+                                FieldA = "cccccc",
+                                Weight = 99 ,
+                                TestId = 111 ,
+                                Children =new List<Child>{ new Child() { Name ="Test"}
+                        }
+                        }
+                    };
+
+                    //insert the item
+                    await repo.StoreAsync(expected);
+                    //find the item
                     {
-                        var original = expected[i];
-                        var created = result[i];
-                        Assert.Equal(original.Id, created.Id);
-                        Assert.Equal(original.Name, created.Name);
-                        Assert.Equal(original.FieldA, created.FieldA);
-                        Assert.Equal(original.Weight, created.Weight);
-                        Assert.Equal(original.Children[0].Name, created.Children[0].Name);
+                        var query = repo.CreateFindRequest();
+                        query.Find(x => x.TestId, 111);
+                        var result = await query.ExecuteAsync();
+                        Assert.Equal(expected.Count, result.Count);
+                        for (int i = 0; i < expected.Count; i++)
+                        {
+                            var original = expected[i];
+                            var created = result[i];
+                            Assert.Equal(original.Id, created.Id);
+                            Assert.Equal(original.Name, created.Name);
+                            Assert.Equal(original.FieldA, created.FieldA);
+                            Assert.Equal(original.Weight, created.Weight);
+                            Assert.Equal(original.Children[0].Name, created.Children[0].Name);
+                        }
+                        expected = result;
                     }
-                }
-                {
-                    var query = new FindRequest<TestItem>();
-                    query.Find(x => x.TestId, 111);
-                    await test.DeleteAsync(query);
-                    var result = await test.SearchAsync(query);
-                    Assert.Equal(0, result.Count);
+                    //update the item
+                    expected[0].Name = "omega";
+                    expected[0].FieldA = "omega";
+                    expected[0].Weight = 3;
+                    expected[0].Children = new List<Child>() { new Child() { Name = "Updated" }, new Child() { Name = "MoreChild" } };
+                    await repo.ReplaceAsync(expected[0]);
+                    {
+                        var query = repo.CreateFindRequest();
+                        query.Find(x => x.TestId, 111);
+                        var result = await query.ExecuteAsync();
+                        Assert.Equal(expected.Count, result.Count);
+                        for (int i = 0; i < expected.Count; i++)
+                        {
+                            var original = expected[i];
+                            var created = result[i];
+                            Assert.Equal(original.Id, created.Id);
+                            Assert.Equal(original.Name, created.Name);
+                            Assert.Equal(original.FieldA, created.FieldA);
+                            Assert.Equal(original.Weight, created.Weight);
+                            Assert.Equal(original.Children[0].Name, created.Children[0].Name);
+                        }
+                    }
+                    {
+                        var query = repo.CreateFindRequest();
+                        query.Find(x => x.TestId, 111);
+                        await repo.DeleteAsync(query);
+                        var result = await query.ExecuteAsync();
+                        Assert.Equal(0, result.Count);
+                    }
                 }
             });
             task.Start();
@@ -110,112 +124,118 @@ namespace Vb.Mongo.Engine.Test
         [Fact]
         public void Bulk()
         {
-            Settings.Instance.DropDatabase("test");
             var task = new Task(async () =>
             {
-                var bulk = new List<TestItem>();
-                for (int i = 0; i < 5; i++)
+                using (var dbCtx = CreateContext())
                 {
-                    bulk.Add(new TestItem()
+                    dbCtx.Purge();
+                    var repo = dbCtx.CreateRepository<TestItem>(t => t.Id);
+
+                    var bulk = new List<TestItem>();
+                    for (int i = 0; i < 5; i++)
                     {
-                        Name = "Upsert",
-                        FieldA = $"Insert{i + 1}",
-                        Weight = 5001 + i,
-                        Children = new List<Child> { new Child() { Name = string.Format("Test {0}", i + 1) } }
-                    });
-                }
-                await test.BulkAsync(x => x.Id, bulk);
-                var query = new FindRequest<TestItem>();
-                query.And(x => x.Name, "Upsert").Sort(x => x.Weight);
-                var result = await test.SearchAsync(query);
-                Assert.Equal(bulk.Count, result.Count);
-                for (int i = 0; i < 5; i++)
-                {
-                    var original = bulk[i];
-                    var created = result[i];
-                    Assert.Equal(original.Id, created.Id);
-                    Assert.Equal(original.Name, created.Name);
-                    Assert.Equal(original.FieldA, created.FieldA);
-                    Assert.Equal(original.Weight, created.Weight);
-                    Assert.Equal(original.Children[0].Name, created.Children[0].Name);
-                }
-                var upsert = new List<TestItem>();
-                result[2].Name = "Upsert";
-                result[2].FieldA = "Updated 3";
-                result[3].Name = "Upsert";
-                result[3].FieldA = "Updated 4";
-                upsert.Add(result[2]);
-                upsert.Add(result[3]);
-                for (int i = 5; i < 10; i++)
-                {
-                    upsert.Add(new TestItem()
+                        bulk.Add(new TestItem()
+                        {
+                            Name = "Upsert",
+                            FieldA = $"Insert{i + 1}",
+                            Weight = 5001 + i,
+                            Children = new List<Child> { new Child() { Name = string.Format("Test {0}", i + 1) } }
+                        });
+                    }
+                    await repo.BulkAsync(bulk);
+
+                    var query = repo.CreateFindRequest();
+                    query.And(x => x.Name, "Upsert").Sort(x => x.Weight);
+                    var result = await query.ExecuteAsync();
+                    Assert.Equal(bulk.Count, result.Count);
+                    for (int i = 0; i < 5; i++)
                     {
-                        Name = "Upsert",
-                        FieldA = $"New Insert{i + 1}",
-                        Weight = 5001 + i,
-                        Children = new List<Child> { new Child() { Name = string.Format("Test {0}", i + 1) } }
-                    });
-                }
-                query = new FindRequest<TestItem>();
-                query.And(x => x.Name, "Upsert").Sort(x => x.Weight);
-                result = await test.SearchAsync(query);
-                Assert.Equal(upsert.Count, result.Count);
-                for (int i = 0; i < 7; i++)
-                {
-                    var original = upsert[i];
-                    var created = result[i];
-                    if (i > 1)
-                    {
+                        var original = bulk[i];
+                        var created = result[i];
                         Assert.Equal(original.Id, created.Id);
                         Assert.Equal(original.Name, created.Name);
                         Assert.Equal(original.FieldA, created.FieldA);
                         Assert.Equal(original.Weight, created.Weight);
                         Assert.Equal(original.Children[0].Name, created.Children[0].Name);
                     }
-                    else
+
+                    var upsert = new List<TestItem>();
+                    result[2].Name = "Upsert";
+                    result[2].FieldA = "Updated 3";
+                    result[3].Name = "Upsert";
+                    result[3].FieldA = "Updated 4";
+                    upsert.Add(result[2]);
+                    upsert.Add(result[3]);
+                    for (int i = 5; i < 10; i++)
                     {
+                        upsert.Add(new TestItem()
+                        {
+                            Name = "Upsert",
+                            FieldA = $"New Insert{i + 1}",
+                            Weight = 5001 + i,
+                            Children = new List<Child> { new Child() { Name = string.Format("Test {0}", i + 1) } }
+                        });
+                    }
+                    await repo.BulkAsync(upsert);
+
+                    query = repo.CreateFindRequest();
+                    query.And(x => x.Name, "Upsert").Sort(x => x.Weight);
+                    result = await query.ExecuteAsync();
+                    Assert.Equal(upsert.Count, result.Count);
+                    for (int i = 0; i < 7; i++)
+                    {
+                        var original = upsert[i];
+                        var created = result[i];
+                        Assert.Equal(original.Id, created.Id);
                         Assert.Equal(original.Name, created.Name);
                         Assert.Equal(original.FieldA, created.FieldA);
-                        Assert.Equal("Updated " + (i + 1), created.FieldA);
-                        Assert.Equal("Upsert", created.Name);
+                        Assert.Equal(original.Weight, created.Weight);
+                        Assert.Equal(original.Children[0].Name, created.Children[0].Name);
                     }
                 }
             });
             task.Start();
         }
+
         [Fact]
         public void SearchWithAnd()
         {
-            Settings.Instance.DropDatabase("test");
             var task = new Task(async () =>
             {
-                await test.StoreAsync(testData);
-                var query = new FindRequest<TestItem>();
-                query.Find(x => x.Name, "beta");
-                query.And(x => x.FieldA, "item2");
-                query.Sort(x => x.Name);
-                query.Sort(x => x.FieldA);
-                var expectedIds = new List<int> { 1, 2, 3, 5, 11 };
-                var expected = testData.Where(x => expectedIds.Contains(x.TestId)).OrderBy(x => x.Name).ThenBy(x => x.FieldA).ToList();
-                var result = await test.SearchAsync(query);
-                Assert.Equal(expected.Count, result.Count);
-                for (int i = 0; i < expectedIds.Count; i++)
+                using (var dbCtx = CreateContext())
                 {
-                    var original = expected[i];
-                    var created = result[i];
-                    Assert.Equal(original.Id, created.Id);
-                    Assert.Equal(original.Name, created.Name);
-                    Assert.Equal(original.FieldA, created.FieldA);
-                    Assert.Equal(original.Weight, created.Weight);
-                    Assert.Equal(original.Children[0].Name, created.Children[0].Name);
+                    dbCtx.Purge();
+                    var repo = dbCtx.CreateRepository<TestItem>(t => t.Id);
+                    await repo.StoreAsync(testData);
+                    var query = repo.CreateFindRequest();
+                    query.Find(x => x.Name, "beta");
+                    query.And(x => x.FieldA, "item2");
+                    query.Sort(x => x.Name);
+                    query.Sort(x => x.FieldA);
+                    var expectedIds = new List<int> { 1, 2, 3, 5, 11 };
+                    var expected = testData.Where(x => expectedIds.Contains(x.TestId)).OrderBy(x => x.Name).ThenBy(x => x.FieldA).ToList();
+                    var result = await query.ExecuteAsync();
+
+                    Assert.Equal(expected.Count, result.Count);
+                    for (int i = 0; i < expectedIds.Count; i++)
+                    {
+                        var original = expected[i];
+                        var created = result[i];
+                        Assert.Equal(original.Id, created.Id);
+                        Assert.Equal(original.Name, created.Name);
+                        Assert.Equal(original.FieldA, created.FieldA);
+                        Assert.Equal(original.Weight, created.Weight);
+                        Assert.Equal(original.Children[0].Name, created.Children[0].Name);
+                    }
                 }
             });
             task.Start();
         }
+        /*
         [Fact]
         public void SearchWithOr()
         {
-            Settings.Instance.DropDatabase("test");
+            MongoContext.Instance.DropDatabase("test");
             var task = new Task(async () =>
             {
                 await test.StoreAsync(testData);
@@ -246,7 +266,7 @@ namespace Vb.Mongo.Engine.Test
         [Fact]
         public void SearchWithNot()
         {
-            Settings.Instance.DropDatabase("test");
+            MongoContext.Instance.DropDatabase("test");
             var task = new Task(async () =>
             {
                 await test.StoreAsync(testData);
@@ -276,7 +296,7 @@ namespace Vb.Mongo.Engine.Test
         [Fact]
         public void SearchWithLike()
         {
-            Settings.Instance.DropDatabase("test");
+            MongoContext.Instance.DropDatabase("test");
             var task = new Task(async () =>
             {
                 await test.StoreAsync(testData);
@@ -305,7 +325,7 @@ namespace Vb.Mongo.Engine.Test
         [Fact]
         public void SearchWithGreaterThan()
         {
-            Settings.Instance.DropDatabase("test");
+            MongoContext.Instance.DropDatabase("test");
             var task = new Task(async () =>
             {
                 await test.StoreAsync(testData);
@@ -335,7 +355,7 @@ namespace Vb.Mongo.Engine.Test
         [Fact]
         public void SearchWithLessThan()
         {
-            Settings.Instance.DropDatabase("test");
+            MongoContext.Instance.DropDatabase("test");
             var task = new Task(async () =>
             {
                 await test.StoreAsync(testData);
@@ -364,7 +384,7 @@ namespace Vb.Mongo.Engine.Test
         [Fact]
         public void SearchNested()
         {
-            Settings.Instance.DropDatabase("test");
+            MongoContext.Instance.DropDatabase("test");
             var task = new Task(async () =>
             {
                 await test.StoreAsync(testData);
@@ -391,7 +411,7 @@ namespace Vb.Mongo.Engine.Test
         [Fact]
         public void SearchMixed()
         {
-            Settings.Instance.DropDatabase("test");
+            MongoContext.Instance.DropDatabase("test");
             var task = new Task(async () =>
             {
                 await test.StoreAsync(testData);
@@ -424,7 +444,7 @@ namespace Vb.Mongo.Engine.Test
         {//MongoDB.Driver.MongoBulkWriteException
             var task = Task.Run(async () =>
             {
-                Settings.Instance.DropDatabase("test");
+                MongoContext.Instance.DropDatabase("test");
                 test.UniqueIndex("TestId", x => x.TestId);
                 await test.StoreAsync(testData);
                 var dbl = new List<TestItem>
@@ -454,8 +474,8 @@ namespace Vb.Mongo.Engine.Test
         {
             var task = Task.Run(async () =>
             {
-                Settings.Instance.DropDatabase("test_log");
-                var log = new Container<object>("test_log");
+                MongoContext.Instance.DropDatabase("test_log");
+                var log = new MongoRepository<object>("test_log");
                 var obj = new System.Dynamic.ExpandoObject();
                 var props = ((IDictionary<string, object>)obj);
                 props.Add("LogType", "Info");
@@ -470,8 +490,8 @@ namespace Vb.Mongo.Engine.Test
         {
             var task = Task.Run(async () =>
             {
-                Settings.Instance.DropDatabase("test_log");
-                var log = new Container<object>("test_log");
+                MongoContext.Instance.DropDatabase("test_log");
+                var log = new MongoRepository<object>("test_log");
 
                 await log.StoreAsync(new List<object> { new { LogType = "Info", Message = "This is a test" } });
             });
@@ -480,8 +500,8 @@ namespace Vb.Mongo.Engine.Test
         [Fact]
         public void SearchInUkknown()
         {
-            Settings.Instance.DropDatabase("test_log");
-            var log = new Container<object>("test_log");
+            MongoContext.Instance.DropDatabase("test_log");
+            var log = new MongoRepository<object>("test_log");
             Task.Run(async () =>
             {
                 var obj = new { Message = "This is a test" };
@@ -496,5 +516,6 @@ namespace Vb.Mongo.Engine.Test
                 Assert.Equal("This is a test", val);
             }).Wait();
         }
+        */
     }
 }

@@ -13,30 +13,38 @@ using Vb.Mongo.Engine.Find;
 namespace Vb.Mongo.Engine.Db
 {
     /// <summary>
-    /// Core mongoDb manager Can search or insert items of type T into the database
+    /// Core mongoDb repository can search or insert items of type T into the database
     /// </summary>
     /// <typeparam name="T">The Entity stored in mongoDb</typeparam>
-    public class Container<T> where T : class
+    public class MongoRepository<T> where T : class
     {
-        string _dbName;
-        IMongoDatabase _db = null;
+        MongoContext vContext { get; }
+        MongoClient vClient { get; }
+        IMongoDatabase vDatabase { get; }
+        string CollectionName { get; }
+        Expression<Func<T, object>> IdField { get; }
 
         #region Constructor
         /// <summary>
-        /// Constructor
+        /// 
         /// </summary>
-        /// <param name="pDbName">The database name</param>
-        public Container(string pDbName)
+        /// <param name="context">Mongo Context</param>
+        /// <param name="idField">The Id Field of the repository</param>
+        internal MongoRepository(MongoContext context, Expression<Func<T, object>> idField)
         {
-            _dbName = pDbName;
-            _db = Settings.Instance.Client.GetDatabase(_dbName);
-            if (!BsonClassMap.IsClassMapRegistered(typeof(T)))
-            {
-                BsonClassMap.RegisterClassMap<T>(cm =>
-                {
-                    cm.AutoMap();
-                });
-            }
+            vContext = context;
+            vClient = context.Client;
+            vDatabase = vClient.GetDatabase(context.DatabaseName);
+            CollectionName = nameof(T);
+            IdField = idField;
+        }
+        internal MongoRepository(MongoContext context, string collectionName, Expression<Func<T, object>> idField)
+        {
+            vContext = context;
+            vClient = context.Client;
+            vDatabase = vClient.GetDatabase(context.DatabaseName);
+            CollectionName = collectionName;
+            IdField = idField;
         }
         #endregion
 
@@ -48,7 +56,7 @@ namespace Vb.Mongo.Engine.Db
         {
             get
             {
-                return _db.GetCollection<T>(nameof(T));
+                return vDatabase.GetCollection<T>(CollectionName);
             }
         }
 
@@ -101,83 +109,6 @@ namespace Vb.Mongo.Engine.Db
         }
         #endregion
 
-        #region Session and Transactions
-        /// <summary>
-        /// Execute a block of calls in mongodb in a transaction
-        /// </summary>
-        /// <param name="transactions">Transactions execution code</param>
-        public void Transaction(Action transactions)
-        {
-            using (var session = Settings.Instance.Client.StartSession())
-            {
-                session.StartTransaction();
-                transactions();
-                session.CommitTransaction();
-            }
-        }
-        /// <summary>
-        /// Execute a block of calls in mongodb in a transaction and return the code call result
-        /// </summary>
-        /// <typeparam name="TResult">Return template of this transaction</typeparam>
-        /// <param name="transactions">Transactions execution code</param>
-        /// <returns>The execution result of transactions() call</returns>
-        public TResult Transaction<TResult>(Func<TResult> transactions)
-        {
-            using (var session = Settings.Instance.Client.StartSession())
-            {
-                session.StartTransaction();
-                // execute operations using the session
-                var result = transactions();
-                session.CommitTransaction();
-                return result;
-            }
-        }
-        /// <summary>
-        /// Execute a block of calls in mongodb in a transaction asynchronous
-        /// </summary>
-        /// <param name="transactions">Transactions execution code</param>
-        public async Task TransactionAsync(Action transactions)
-        {
-            using (var session = await Settings.Instance.Client.StartSessionAsync())
-            {
-                try
-                {
-                    transactions();
-                }
-                catch
-                {
-                    await session.AbortTransactionAsync();
-                    throw;
-                }
-                await session.CommitTransactionAsync();
-            }
-        }
-        /// <summary>
-        /// Execute a block of calls in mongodb in a transaction and return the code call result asynchronous
-        /// </summary>
-        /// <typeparam name="TResult">Return template of this transaction</typeparam>
-        /// <param name="transactions">Transactions execution code</param>
-        /// <returns>The execution result of transactions() call</returns>
-        public async Task<TResult> TransactionAsync<TResult>(Func<TResult> transactions)
-        {
-            using (var session = await Settings.Instance.Client.StartSessionAsync())
-            {
-                TResult result;
-                try
-                {
-                    result = transactions();
-                }
-                catch
-                {
-                    await session.AbortTransactionAsync();
-                    throw;
-                }
-                await session.CommitTransactionAsync();
-                return result;
-            }
-        }
-        #endregion
-
         #region Store Data
         /// <summary>
         /// Stores an item
@@ -185,7 +116,14 @@ namespace Vb.Mongo.Engine.Db
         /// <param name="item">Data to store</param>
         public void Store(T item)
         {
-            Collection.InsertOne(item);
+            if (vContext.Session == null)
+            {
+                Collection.InsertOne(item);
+            }
+            else
+            {
+                Collection.InsertOne(vContext.Session, item);
+            }
         }
         /// <summary>
         /// Stores an item asynchronous
@@ -193,7 +131,14 @@ namespace Vb.Mongo.Engine.Db
         /// <param name="item">Data to store</param>
         public async Task StoreAsync(T item)
         {
-            await Collection.InsertOneAsync(item);
+            if (vContext.Session == null)
+            {
+                await Collection.InsertOneAsync(item);
+            }
+            else
+            {
+                await Collection.InsertOneAsync(vContext.Session, item);
+            }
         }
         /// <summary>
         /// Stores a set of Data in Data Base
@@ -201,7 +146,14 @@ namespace Vb.Mongo.Engine.Db
         /// <param name="items">Data to store</param>
         public void Store(IList<T> items)
         {
-            Collection.InsertMany(items);
+            if (vContext.Session == null)
+            {
+                Collection.InsertMany(items);
+            }
+            else
+            {
+                Collection.InsertMany(vContext.Session, items);
+            }
         }
 
         /// <summary>
@@ -210,78 +162,110 @@ namespace Vb.Mongo.Engine.Db
         /// <param name="items">Data to store</param>
         public async Task StoreAsync(IList<T> items)
         {
-            await Collection.InsertManyAsync(items);
+            if (vContext.Session == null)
+            {
+                await Collection.InsertManyAsync(items);
+            }
+            else
+            {
+                await Collection.InsertManyAsync(vContext.Session, items);
+            }
         }
 
         /// <summary>
         /// Replaces an item in database with the given one
         /// </summary>
-        /// <param name="idField">Id Field expression</param>
         /// <param name="item">Data to insert or store</param>
-        public long Replace(Expression<Func<T, object>> idField, T item)
+        public long Replace(T item)
         {
-            var filter = Builders<T>.Filter.Eq(idField, Metadata.ObjectValue(idField, item));
+            var filter = Builders<T>.Filter.Eq(IdField, Reflection.ObjectValue(IdField, item));
             var options = new UpdateOptions { IsUpsert = false };
-            var result = Collection.ReplaceOne(filter, item, options);
+            ReplaceOneResult result = null;
+            if (vContext.Session == null)
+            {
+                result = Collection.ReplaceOne(filter, item, options);
+            }
+            else
+            {
+                result = Collection.ReplaceOne(vContext.Session, filter, item, options);
+            }
             return result.IsAcknowledged ? result.MatchedCount : 0;
         }
 
         /// <summary>
         /// Replaces an item in database with the given one asynchrony
         /// </summary>
-        /// <param name="idField">Id Field expression</param>
         /// <param name="item">Data to insert or store</param>
-        public async Task<long> ReplaceAsync(Expression<Func<T, object>> idField, T item)
+        public async Task<long> ReplaceAsync(T item)
         {
-            var filter = Builders<T>.Filter.Eq(idField, Metadata.ObjectValue(idField, item));
+            var filter = Builders<T>.Filter.Eq(IdField, Reflection.ObjectValue(IdField, item));
             var options = new UpdateOptions { IsUpsert = false };
-            var result = await Collection.ReplaceOneAsync(filter, item, options);
+            ReplaceOneResult result = null;
+            if (vContext.Session == null)
+            {
+                result = await Collection.ReplaceOneAsync(filter, item, options);
+            }
+            else
+            {
+                result = await Collection.ReplaceOneAsync(vContext.Session, filter, item, options);
+            }
             return result.IsAcknowledged ? result.MatchedCount : 0;
         }
 
         /// <summary>
         /// Updates or inserts a collection of items in database
         /// </summary>
-        /// <param name="idField">Id Field expression</param>
         /// <param name="items">Data to insert or store</param>
-        public void Bulk(Expression<Func<T, object>> idField, IList<T> items)
+        public void Bulk(IList<T> items)
         {
             var options = new BulkWriteOptions { IsOrdered = true };
-            var writeModel = BulkCollection(idField, items);
-            var result = Collection.BulkWrite(writeModel, options);
+            var writeModel = BulkCollection(items);
+            if (vContext.Session == null)
+            {
+                Collection.BulkWrite(writeModel, options);
+            }
+            else
+            {
+                Collection.BulkWrite(vContext.Session, writeModel, options);
+            }
         }
 
         /// <summary>
         /// Updates or inserts a collection of items in database asynchrony
         /// </summary>
-        /// <param name="idField">Id Field expression</param>
         /// <param name="items">Data to insert or store</param>
-        public async Task BulkAsync(Expression<Func<T, object>> idField, IList<T> items)
+        public async Task BulkAsync(IList<T> items)
         {
             var options = new BulkWriteOptions { IsOrdered = true };
-            var writeModel = BulkCollection(idField, items);
-            var result = await Collection.BulkWriteAsync(writeModel, options);
+            var writeModel = BulkCollection(items);
+            if (vContext.Session == null)
+            {
+                await Collection.BulkWriteAsync(writeModel, options);
+            }
+            else
+            {
+                await Collection.BulkWriteAsync(vContext.Session, writeModel, options);
+            }
         }
 
         /// <summary>
         /// Generates writemodel for bulk operation
         /// </summary>
-        /// <param name="idField">Expression for the mongoId Object</param>
         /// <param name="items">List for the items that will be inserted with a bulk operation</param>
         /// <returns>Write Model</returns>
-        private IEnumerable<WriteModel<T>> BulkCollection(Expression<Func<T, object>> idField, IList<T> items)
+        private IEnumerable<WriteModel<T>> BulkCollection(IList<T> items)
         {
             var writeModel = new List<WriteModel<T>>();
 
             foreach (var c in items)
             {
-                if (Metadata.EmptyMongoId(idField, c))
+                if (Reflection.EmptyMongoId(IdField, c))
                 {//Insert cause Upsert is retarded with Empty ObjectId and tries to update it
                     writeModel.Add(new InsertOneModel<T>(c));
                 }
                 else
                 {
-                    writeModel.Add(new ReplaceOneModel<T>(Builders<T>.Filter.Eq(idField, Metadata.ObjectValue(idField, c)), c) { IsUpsert = true });
+                    writeModel.Add(new ReplaceOneModel<T>(Builders<T>.Filter.Eq(IdField, Reflection.ObjectValue(IdField, c)), c) { IsUpsert = true });
                 }
             }
 
@@ -298,7 +282,15 @@ namespace Vb.Mongo.Engine.Db
         public long Delete(FindRequest<T> request)
         {
             var filter = request.buildFilterDefinition();
-            var result = Collection.DeleteMany(filter);
+            DeleteResult result;
+            if (vContext.Session == null)
+            {
+                result = Collection.DeleteMany(filter);
+            }
+            else
+            {
+                result = Collection.DeleteMany(vContext.Session, filter);
+            }
             return result.DeletedCount;
         }
 
@@ -310,7 +302,15 @@ namespace Vb.Mongo.Engine.Db
         public async Task<long> DeleteAsync(FindRequest<T> request)
         {
             var filter = request.buildFilterDefinition();
-            var result = await Collection.DeleteManyAsync(filter);
+            DeleteResult result;
+            if (vContext.Session == null)
+            {
+                result = await Collection.DeleteManyAsync(filter);
+            }
+            else
+            {
+                result = await Collection.DeleteManyAsync(vContext.Session, filter);
+            }
             return result.DeletedCount;
         }
         #endregion
@@ -389,6 +389,27 @@ namespace Vb.Mongo.Engine.Db
             var filter = request.buildFilterDefinition();
             var sort = request.buildSortingDefinition();
             return await SearchAsync(filter, sort, request.Skip, request.Take);
+        }
+
+        /// <summary>
+        /// Creates a dynamic find request for search
+        /// </summary>
+        /// <returns></returns>
+        public FindRequest<T> CreateFindRequest()
+        {
+            return new FindRequest<T>(this);
+        }
+
+        /// <summary>
+        /// Creates a dynamic find request for search with paging options
+        /// </summary>
+        /// <param name="page">Results page number</param>
+        /// <param name="itemsPerPage">Items per result page</param>
+        /// <param name="limitUp">Max Items to return</param>
+        /// <returns></returns>
+        public FindRequest<T> CreateFindRequest(int page, int itemsPerPage, int limitUp = 1000)
+        {
+            return new FindRequest<T>(this, page, itemsPerPage, limitUp);
         }
         #endregion
 
