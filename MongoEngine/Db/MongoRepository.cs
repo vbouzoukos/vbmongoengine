@@ -23,7 +23,7 @@ namespace Vb.Mongo.Engine.Db
         IMongoDatabase vDatabase { get; }
         string CollectionName { get; }
         Expression<Func<T, object>> IdField { get; }
-
+        const string mongoId = "_id";
         #region Constructor
         /// <summary>
         /// 
@@ -35,7 +35,7 @@ namespace Vb.Mongo.Engine.Db
             vContext = context;
             vClient = context.Client;
             vDatabase = vClient.GetDatabase(context.DatabaseName);
-            CollectionName = nameof(T);
+            CollectionName = typeof(T).Name;
             IdField = idField;
         }
         internal MongoRepository(MongoContext context, string collectionName, Expression<Func<T, object>> idField)
@@ -178,7 +178,15 @@ namespace Vb.Mongo.Engine.Db
         /// <param name="item">Data to insert or store</param>
         public long Replace(T item)
         {
-            var filter = Builders<T>.Filter.Eq(IdField, Reflection.ObjectValue(IdField, item));
+            FilterDefinition<T> filter;
+            if (IdField == null)
+            {
+                filter = Builders<T>.Filter.Eq(mongoId, Reflection.ObjectValue(mongoId, item));
+            }
+            else
+            { 
+                 filter = Builders<T>.Filter.Eq(IdField, Reflection.ObjectValue(IdField, item));
+            }
             var options = new UpdateOptions { IsUpsert = false };
             ReplaceOneResult result = null;
             if (vContext.Session == null)
@@ -198,7 +206,15 @@ namespace Vb.Mongo.Engine.Db
         /// <param name="item">Data to insert or store</param>
         public async Task<long> ReplaceAsync(T item)
         {
-            var filter = Builders<T>.Filter.Eq(IdField, Reflection.ObjectValue(IdField, item));
+            FilterDefinition<T> filter;
+            if (IdField == null)
+            {
+                filter = Builders<T>.Filter.Eq(mongoId, Reflection.ObjectValue(mongoId, item));
+            }
+            else
+            {
+                filter = Builders<T>.Filter.Eq(IdField, Reflection.ObjectValue(IdField, item));
+            }
             var options = new UpdateOptions { IsUpsert = false };
             ReplaceOneResult result = null;
             if (vContext.Session == null)
@@ -259,13 +275,27 @@ namespace Vb.Mongo.Engine.Db
 
             foreach (var c in items)
             {
-                if (Reflection.EmptyMongoId(IdField, c))
-                {//Insert cause Upsert is retarded with Empty ObjectId and tries to update it
-                    writeModel.Add(new InsertOneModel<T>(c));
+                if (IdField == null)
+                {
+                    if (Reflection.EmptyMongoId(mongoId, c))
+                    {//Insert cause Upsert is retarded with Empty ObjectId and tries to update it
+                        writeModel.Add(new InsertOneModel<T>(c));
+                    }
+                    else
+                    {
+                        writeModel.Add(new ReplaceOneModel<T>(Builders<T>.Filter.Eq(mongoId, Reflection.ObjectValue(mongoId, c)), c) { IsUpsert = true });
+                    }
                 }
                 else
                 {
-                    writeModel.Add(new ReplaceOneModel<T>(Builders<T>.Filter.Eq(IdField, Reflection.ObjectValue(IdField, c)), c) { IsUpsert = true });
+                    if (Reflection.EmptyMongoId(IdField, c))
+                    {//Insert cause Upsert is retarded with Empty ObjectId and tries to update it
+                        writeModel.Add(new InsertOneModel<T>(c));
+                    }
+                    else
+                    {
+                        writeModel.Add(new ReplaceOneModel<T>(Builders<T>.Filter.Eq(IdField, Reflection.ObjectValue(IdField, c)), c) { IsUpsert = true });
+                    }
                 }
             }
 

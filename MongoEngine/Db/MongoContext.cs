@@ -36,10 +36,18 @@ namespace Vb.Mongo.Engine.Db
         public void CreateCollectionIfNotExist(string collectionName)
         {
             var database = Client.GetDatabase(DatabaseName);
-            if (!database.ListCollectionNames().ToList().Contains(collectionName))
+            var collectionFilter = new ListCollectionNamesOptions
+            {
+                Filter = Builders<MongoDB.Bson.BsonDocument>.Filter.Eq("name", collectionName)
+            };
+            if (!database.ListCollectionNames(collectionFilter).Any())
             {
                 database.CreateCollection(collectionName);
             }
+        }
+        public MongoRepository<T> CreateRepository<T>() where T : class, new()
+        {
+            return new MongoRepository<T>(this, null);
         }
 
         public MongoRepository<T> CreateRepository<T>(Expression<Func<T, object>> idField) where T : class, new()
@@ -49,13 +57,6 @@ namespace Vb.Mongo.Engine.Db
 
         public MongoRepository<T> CreateRepository<T>(Expression<Func<T, object>> idField, string collectionName) where T : class, new()
         {
-            if (!BsonClassMap.IsClassMapRegistered(typeof(T)))
-            {
-                BsonClassMap.RegisterClassMap<T>(cm =>
-                {
-                    cm.AutoMap();
-                });
-            }
             return new MongoRepository<T>(this, collectionName, idField);
         }
 
@@ -64,7 +65,16 @@ namespace Vb.Mongo.Engine.Db
             settings();
             return new MongoRepository<T>(this, collectionName, idField);
         }
+        public MongoRepository<T> CreateRepository<T>(string collectionName) where T : class, new()
+        {
+            return new MongoRepository<T>(this, collectionName, null);
+        }
 
+        public MongoRepository<T> CreateRepository<T>(string collectionName, Action settings) where T : class, new()
+        {
+            settings();
+            return new MongoRepository<T>(this, collectionName, null);
+        }
         public void BeginTransaction()
         {
             if (Session == null)

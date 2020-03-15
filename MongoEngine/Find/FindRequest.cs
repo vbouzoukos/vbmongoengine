@@ -134,7 +134,7 @@ namespace Vb.Mongo.Engine.Find
         #region Search Information functionality
         public FindRequest<T> Find(Expression<Func<T, object>> field, object value, EnComparator compare = EnComparator.EqualTo)
         {
-            var fieldName = Reflection.GetMemberInfo(field).Member.Name;
+            var fieldName = Reflection.GetExpressionPath(field);//Reflection.GetMemberInfo(field).Member.Name;
             Fields.Add(new QueryField(fieldName, value, EnOperator.Find, compare));
             return this;
         }
