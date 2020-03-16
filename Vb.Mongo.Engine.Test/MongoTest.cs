@@ -11,7 +11,7 @@ namespace Vb.Mongo.Engine.Test
 {
     public class MongoTest
     {
-        List<TestItem> testData;
+        readonly List<TestItem> testData;
         const string connectionString = "mongodb://localhost?replicaSet=rs0";
 
         const string dbName = "test";
@@ -20,8 +20,7 @@ namespace Vb.Mongo.Engine.Test
         const string dbNameUknown = "testuknown";
         const string dbNameAsync = "testasync";
         const string dbNameUqIndx = "uniqidxtest";
-
-        Orchestrator testOrchestrator;
+        readonly Orchestrator testOrchestrator;
         public MongoTest()
         {
             //Test data for search

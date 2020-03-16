@@ -17,7 +17,6 @@ namespace Vb.Mongo.Engine.Db
 
         #region Attributes
         internal string ConnectionString { get; set; }
-        static Orchestrator _instance = null;
         internal int ResultsLimit { get; private set; }
         #endregion
 

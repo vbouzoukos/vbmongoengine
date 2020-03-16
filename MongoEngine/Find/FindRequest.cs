@@ -22,7 +22,8 @@ namespace Vb.Mongo.Engine.Find
 
 		internal int? Skip { get; set; }
 		internal int? Take { get; set; }
-        MongoRepository<T> vRepository;
+
+        readonly MongoRepository<T> vRepository;
 
         int _page;
 		/// <summary>
@@ -34,7 +35,7 @@ namespace Vb.Mongo.Engine.Find
 			set
 			{
 				_page = value;
-				pagingCalculations();
+				PagingCalculations();
 			}
 		}
 
@@ -48,7 +49,7 @@ namespace Vb.Mongo.Engine.Find
 			set
 			{
 				_itemsPerPage = value;
-				pagingCalculations();
+				PagingCalculations();
 			}
 		}
 
@@ -62,7 +63,7 @@ namespace Vb.Mongo.Engine.Find
 			set
 			{
 				_limitUp = value;
-				pagingCalculations();
+				PagingCalculations();
 			}
 		}
 		int _pages;
@@ -91,7 +92,7 @@ namespace Vb.Mongo.Engine.Find
         internal FindRequest(MongoRepository<T> context, int page, int itemsPerPage, int limitUp)
 		{
             vRepository = context;
-            setPaging(page, itemsPerPage, limitUp);
+            SetPaging(page, itemsPerPage, limitUp);
 		}
 		#endregion
 
@@ -102,18 +103,18 @@ namespace Vb.Mongo.Engine.Find
 		/// <param name="page"></param>
 		/// <param name="itemsPerPage"></param>
 		/// <param name="limitUp"></param>
-		void setPaging(int page, int itemsPerPage, int limitUp)
+		void SetPaging(int page, int itemsPerPage, int limitUp)
 		{
 			_page = page;
 			_itemsPerPage = itemsPerPage;
 			_limitUp = limitUp;
-			pagingCalculations();
+			PagingCalculations();
 		}
 
 		/// <summary>
 		/// Calculate values of skip and take that will be send to MongoDB find
 		/// </summary>
-		void pagingCalculations()
+		void PagingCalculations()
 		{
 			var pg = _page - 1;
 			if (pg < 0)
@@ -221,7 +222,7 @@ namespace Vb.Mongo.Engine.Find
         /// Generate a filter definition from a Query Information
         /// </summary>
         /// <returns>MongoDB Filter definition for T</returns>
-        internal FilterDefinition<T> buildFilterDefinition()
+        internal FilterDefinition<T> BuildFilterDefinition()
 		{
 			var filter = Builders<T>.Filter;
 			FilterDefinition<T> filterDef = null;
@@ -293,7 +294,7 @@ namespace Vb.Mongo.Engine.Find
 		/// Generate a sort definition from a Query Information
 		/// </summary>
 		/// <returns>MongoDB Filter definition for T</returns>
-		internal SortDefinition<T> buildSortingDefinition()
+		internal SortDefinition<T> BuildSortingDefinition()
 		{
 			SortDefinition<T> sortDef = null;
 

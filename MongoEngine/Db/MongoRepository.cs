@@ -22,17 +22,17 @@ namespace Vb.Mongo.Engine.Db
         /// <summary>
         /// Owner context
         /// </summary>
-        MongoContext vContext { get; }
+        MongoContext Context { get; }
 
         /// <summary>
         /// Mongo Client
         /// </summary>
-        MongoClient vClient { get; }
+        MongoClient Client { get; }
         /// <summary>
         /// MongoDB database used by repositroy
         /// </summary>
         /// 
-        IMongoDatabase vDatabase { get; }
+        IMongoDatabase Database { get; }
         /// <summary>
         /// Collection name
         /// </summary>
@@ -64,9 +64,9 @@ namespace Vb.Mongo.Engine.Db
         /// <param name="idField">The Id Field of the repository</param>
         internal MongoRepository(MongoContext context, Expression<Func<T, object>> idField)
         {
-            vContext = context;
-            vClient = context.Client;
-            vDatabase = vClient.GetDatabase(context.DatabaseName);
+            Context = context;
+            Client = context.Client;
+            Database = Client.GetDatabase(context.DatabaseName);
             CollectionName = typeof(T).Name;
             IdField = idField;
         }
@@ -78,9 +78,9 @@ namespace Vb.Mongo.Engine.Db
         /// <param name="idField">The Id Field of the repository</param>
         internal MongoRepository(MongoContext context, string collectionName, Expression<Func<T, object>> idField)
         {
-            vContext = context;
-            vClient = context.Client;
-            vDatabase = vClient.GetDatabase(context.DatabaseName);
+            Context = context;
+            Client = context.Client;
+            Database = Client.GetDatabase(context.DatabaseName);
             CollectionName = collectionName;
             IdField = idField;
         }
@@ -94,7 +94,7 @@ namespace Vb.Mongo.Engine.Db
         {
             get
             {
-                return vDatabase.GetCollection<T>(CollectionName);
+                return Database.GetCollection<T>(CollectionName);
             }
         }
 
@@ -108,9 +108,11 @@ namespace Vb.Mongo.Engine.Db
                 return Builders<T>.Filter;
             }
         }
+
         /// <summary>
-        /// LinQ capabilities of MongoDB Driver
+        /// Offers the LinQ capabilities of MongoDB Driver can be used to return all data as queryable (recommend to use with repository pattern)
         /// </summary>
+        /// <returns>Results set as IQueryable</returns>
         public IMongoQueryable<T> Queryable
         {
             get
@@ -173,13 +175,13 @@ namespace Vb.Mongo.Engine.Db
         /// <param name="item">Data to store</param>
         public void Store(T item)
         {
-            if (vContext.Session == null)
+            if (Context.Session == null)
             {
                 Collection.InsertOne(item);
             }
             else
             {
-                Collection.InsertOne(vContext.Session, item);
+                Collection.InsertOne(Context.Session, item);
             }
         }
         /// <summary>
@@ -188,13 +190,13 @@ namespace Vb.Mongo.Engine.Db
         /// <param name="item">Data to store</param>
         public async Task StoreAsync(T item)
         {
-            if (vContext.Session == null)
+            if (Context.Session == null)
             {
                 await Collection.InsertOneAsync(item);
             }
             else
             {
-                await Collection.InsertOneAsync(vContext.Session, item);
+                await Collection.InsertOneAsync(Context.Session, item);
             }
         }
         /// <summary>
@@ -203,13 +205,13 @@ namespace Vb.Mongo.Engine.Db
         /// <param name="items">Data to store</param>
         public void Store(IList<T> items)
         {
-            if (vContext.Session == null)
+            if (Context.Session == null)
             {
                 Collection.InsertMany(items);
             }
             else
             {
-                Collection.InsertMany(vContext.Session, items);
+                Collection.InsertMany(Context.Session, items);
             }
         }
 
@@ -219,13 +221,13 @@ namespace Vb.Mongo.Engine.Db
         /// <param name="items">Data to store</param>
         public async Task StoreAsync(IList<T> items)
         {
-            if (vContext.Session == null)
+            if (Context.Session == null)
             {
                 await Collection.InsertManyAsync(items);
             }
             else
             {
-                await Collection.InsertManyAsync(vContext.Session, items);
+                await Collection.InsertManyAsync(Context.Session, items);
             }
         }
 
@@ -244,17 +246,22 @@ namespace Vb.Mongo.Engine.Db
             {
                 filter = Builders<T>.Filter.Eq(IdField, Reflection.ObjectValue(IdField, item));
             }
-            var options = new UpdateOptions { IsUpsert = false };
+#if NET451
+            var options = new UpdateOptions  { IsUpsert = false };
+#else
+            var options = new ReplaceOptions{ IsUpsert = false };
+#endif
             ReplaceOneResult result = null;
-            if (vContext.Session == null)
+            if (Context.Session == null)
             {
                 result = Collection.ReplaceOne(filter, item, options);
             }
             else
             {
-                result = Collection.ReplaceOne(vContext.Session, filter, item, options);
+                result = Collection.ReplaceOne(Context.Session, filter, item, options);
             }
             return result.IsAcknowledged ? result.MatchedCount : 0;
+
         }
 
         /// <summary>
@@ -272,15 +279,19 @@ namespace Vb.Mongo.Engine.Db
             {
                 filter = Builders<T>.Filter.Eq(IdField, Reflection.ObjectValue(IdField, item));
             }
-            var options = new UpdateOptions { IsUpsert = false };
+#if NET451
+            var options = new UpdateOptions  { IsUpsert = false };
+#else
+            var options = new ReplaceOptions { IsUpsert = false };
+#endif
             ReplaceOneResult result = null;
-            if (vContext.Session == null)
+            if (Context.Session == null)
             {
                 result = await Collection.ReplaceOneAsync(filter, item, options);
             }
             else
             {
-                result = await Collection.ReplaceOneAsync(vContext.Session, filter, item, options);
+                result = await Collection.ReplaceOneAsync(Context.Session, filter, item, options);
             }
             return result.IsAcknowledged ? result.MatchedCount : 0;
         }
@@ -293,13 +304,13 @@ namespace Vb.Mongo.Engine.Db
         {
             var options = new BulkWriteOptions { IsOrdered = true };
             var writeModel = BulkCollection(items);
-            if (vContext.Session == null)
+            if (Context.Session == null)
             {
                 Collection.BulkWrite(writeModel, options);
             }
             else
             {
-                Collection.BulkWrite(vContext.Session, writeModel, options);
+                Collection.BulkWrite(Context.Session, writeModel, options);
             }
         }
 
@@ -311,13 +322,13 @@ namespace Vb.Mongo.Engine.Db
         {
             var options = new BulkWriteOptions { IsOrdered = true };
             var writeModel = BulkCollection(items);
-            if (vContext.Session == null)
+            if (Context.Session == null)
             {
                 await Collection.BulkWriteAsync(writeModel, options);
             }
             else
             {
-                await Collection.BulkWriteAsync(vContext.Session, writeModel, options);
+                await Collection.BulkWriteAsync(Context.Session, writeModel, options);
             }
         }
 
@@ -358,9 +369,9 @@ namespace Vb.Mongo.Engine.Db
 
             return writeModel;
         }
-        #endregion
+#endregion
 
-        #region Delete Data
+#region Delete Data
         /// <summary>
         /// Deletes items that are defined in the find request
         /// </summary>
@@ -368,15 +379,15 @@ namespace Vb.Mongo.Engine.Db
         /// <returns>Count of deleted items</returns>
         public long Delete(FindRequest<T> request)
         {
-            var filter = request.buildFilterDefinition();
+            var filter = request.BuildFilterDefinition();
             DeleteResult result;
-            if (vContext.Session == null)
+            if (Context.Session == null)
             {
                 result = Collection.DeleteMany(filter);
             }
             else
             {
-                result = Collection.DeleteMany(vContext.Session, filter);
+                result = Collection.DeleteMany(Context.Session, filter);
             }
             return result.DeletedCount;
         }
@@ -388,15 +399,15 @@ namespace Vb.Mongo.Engine.Db
         /// <returns>Count of deleted items</returns>
         public async Task<long> DeleteAsync(FindRequest<T> request)
         {
-            var filter = request.buildFilterDefinition();
+            var filter = request.BuildFilterDefinition();
             DeleteResult result;
-            if (vContext.Session == null)
+            if (Context.Session == null)
             {
                 result = await Collection.DeleteManyAsync(filter);
             }
             else
             {
-                result = await Collection.DeleteManyAsync(vContext.Session, filter);
+                result = await Collection.DeleteManyAsync(Context.Session, filter);
             }
             return result.DeletedCount;
         }
@@ -409,13 +420,13 @@ namespace Vb.Mongo.Engine.Db
         {
             var filter = Builders<T>.Filter.Empty;
             DeleteResult result;
-            if (vContext.Session == null)
+            if (Context.Session == null)
             {
                 result = Collection.DeleteMany(filter);
             }
             else
             {
-                result = Collection.DeleteMany(vContext.Session, filter);
+                result = Collection.DeleteMany(Context.Session, filter);
             }
             return result.DeletedCount;
         }
@@ -428,19 +439,19 @@ namespace Vb.Mongo.Engine.Db
         {
             var filter = Builders<T>.Filter.Empty;
             DeleteResult result;
-            if (vContext.Session == null)
+            if (Context.Session == null)
             {
                 result = await Collection.DeleteManyAsync(filter);
             }
             else
             {
-                result = await Collection.DeleteManyAsync(vContext.Session, filter);
+                result = await Collection.DeleteManyAsync(Context.Session, filter);
             }
             return result.DeletedCount;
         }
-        #endregion
+#endregion
 
-        #region Search
+#region Search
         /// <summary>
         /// Async get all data of Collection
         /// </summary>
@@ -511,8 +522,8 @@ namespace Vb.Mongo.Engine.Db
         internal async Task<IList<T>> SearchAsync(FindRequest<T> request)
         {
 
-            var filter = request.buildFilterDefinition();
-            var sort = request.buildSortingDefinition();
+            var filter = request.BuildFilterDefinition();
+            var sort = request.BuildSortingDefinition();
             return await SearchAsync(filter, sort, request.Skip, request.Take);
         }
 
@@ -549,15 +560,6 @@ namespace Vb.Mongo.Engine.Db
         }
 
         /// <summary>
-        /// Returns all data as queryable use with repository pattern
-        /// </summary>
-        /// <returns>Results set as IQueryable</returns>
-        public IQueryable<T> FindAll()
-        {
-            return this.Queryable;
-        }
-
-        /// <summary>
         /// Returns a result of ducuments that satisfies expression condition use with repository pattern
         /// </summary>
         /// <param name="expression">query expression</param>
@@ -566,6 +568,6 @@ namespace Vb.Mongo.Engine.Db
         {
             return Collection.AsQueryable().Where(expression);
         }
-        #endregion
+#endregion
     }
 }

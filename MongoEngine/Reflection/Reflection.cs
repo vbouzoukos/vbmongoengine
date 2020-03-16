@@ -182,8 +182,7 @@ namespace Vb.Mongo.Engine.Entity
         /// <returns>MemberExpression or null if the expression is invalid</returns>
         public static MemberExpression GetMemberInfo(Expression method)
         {
-            LambdaExpression lambda = method as LambdaExpression;
-            if (lambda != null)
+            if (method is LambdaExpression lambda)
             {
 
                 MemberExpression memberExpr = null;
