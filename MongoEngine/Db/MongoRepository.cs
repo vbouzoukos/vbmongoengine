@@ -18,15 +18,47 @@ namespace Vb.Mongo.Engine.Db
     /// <typeparam name="T">The Entity stored in mongoDb</typeparam>
     public class MongoRepository<T> where T : class
     {
+        #region Attributes
+        /// <summary>
+        /// Owner context
+        /// </summary>
         MongoContext vContext { get; }
+
+        /// <summary>
+        /// Mongo Client
+        /// </summary>
         MongoClient vClient { get; }
+        /// <summary>
+        /// MongoDB database used by repositroy
+        /// </summary>
+        /// 
         IMongoDatabase vDatabase { get; }
+        /// <summary>
+        /// Collection name
+        /// </summary>
         string CollectionName { get; }
+        
+        /// <summary>
+        /// The id field expression
+        /// </summary>
         Expression<Func<T, object>> IdField { get; }
+
+        /// <summary>
+        /// Results limits for Find Requests
+        /// </summary>
+        internal int ResultsLimit { get; set; }
+        #endregion
+
+        #region Constants
+        /// <summary>
+        /// The native id of the mongo objects (when user does not wish to set an attribute as id)
+        /// </summary>
         const string mongoId = "_id";
+        #endregion
+
         #region Constructor
         /// <summary>
-        /// 
+        /// constractor of repository uses as collection name the name of the class T 
         /// </summary>
         /// <param name="context">Mongo Context</param>
         /// <param name="idField">The Id Field of the repository</param>
@@ -38,6 +70,12 @@ namespace Vb.Mongo.Engine.Db
             CollectionName = typeof(T).Name;
             IdField = idField;
         }
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="context">Mongo Context</param>
+        /// <param name="collectionName">Collection Name used by repository</param>
+        /// <param name="idField">The Id Field of the repository</param>
         internal MongoRepository(MongoContext context, string collectionName, Expression<Func<T, object>> idField)
         {
             vContext = context;
@@ -101,6 +139,25 @@ namespace Vb.Mongo.Engine.Db
                 {
                     Name = name,
                     Unique = true
+                };
+                var builder = Builders<T>.IndexKeys;
+                var indexModel = new CreateIndexModel<T>(builder.Ascending(field), options);
+                Collection.Indexes.CreateOne(indexModel);
+            }
+        }
+        public void Index(string name, Expression<Func<T, object>> field)
+        {
+
+            var query = Collection.Indexes.List();
+            var bsonIndexes = query.ToList();
+            var indexNames = bsonIndexes.Select(i => i["name"]).ToList();
+
+            if (!indexNames.Contains(name))
+            {
+                CreateIndexOptions options = new CreateIndexOptions
+                {
+                    Name = name,
+                    Unique=false
                 };
                 var builder = Builders<T>.IndexKeys;
                 var indexModel = new CreateIndexModel<T>(builder.Ascending(field), options);
@@ -173,7 +230,7 @@ namespace Vb.Mongo.Engine.Db
         }
 
         /// <summary>
-        /// Replaces an item in database with the given one
+        /// Replaces an item in database with the given one (Use with repository pattern to Update a document)
         /// </summary>
         /// <param name="item">Data to insert or store</param>
         public long Replace(T item)
@@ -184,8 +241,8 @@ namespace Vb.Mongo.Engine.Db
                 filter = Builders<T>.Filter.Eq(mongoId, Reflection.ObjectValue(mongoId, item));
             }
             else
-            { 
-                 filter = Builders<T>.Filter.Eq(IdField, Reflection.ObjectValue(IdField, item));
+            {
+                filter = Builders<T>.Filter.Eq(IdField, Reflection.ObjectValue(IdField, item));
             }
             var options = new UpdateOptions { IsUpsert = false };
             ReplaceOneResult result = null;
@@ -201,7 +258,7 @@ namespace Vb.Mongo.Engine.Db
         }
 
         /// <summary>
-        /// Replaces an item in database with the given one asynchrony
+        /// Replaces an item in database with the given one asynchrony (Use with repository pattern to Update a document)
         /// </summary>
         /// <param name="item">Data to insert or store</param>
         public async Task<long> ReplaceAsync(T item)
@@ -229,7 +286,7 @@ namespace Vb.Mongo.Engine.Db
         }
 
         /// <summary>
-        /// Updates or inserts a collection of items in database
+        /// Updates or inserts a collection of items in database (Use with repository pattern to Update a collection)
         /// </summary>
         /// <param name="items">Data to insert or store</param>
         public void Bulk(IList<T> items)
@@ -247,7 +304,7 @@ namespace Vb.Mongo.Engine.Db
         }
 
         /// <summary>
-        /// Updates or inserts a collection of items in database asynchrony
+        /// Updates or inserts a collection of items in database asynchrony (Use with repository pattern to Update a collection)
         /// </summary>
         /// <param name="items">Data to insert or store</param>
         public async Task BulkAsync(IList<T> items)
@@ -343,6 +400,44 @@ namespace Vb.Mongo.Engine.Db
             }
             return result.DeletedCount;
         }
+
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <returns></returns>
+        public long DeleteAll()
+        {
+            var filter = Builders<T>.Filter.Empty;
+            DeleteResult result;
+            if (vContext.Session == null)
+            {
+                result = Collection.DeleteMany(filter);
+            }
+            else
+            {
+                result = Collection.DeleteMany(vContext.Session, filter);
+            }
+            return result.DeletedCount;
+        }
+
+        /// <summary>
+        ///  Async Deletes all doucments in collection use with repository pattern
+        /// </summary>
+        /// <returns>Deleted documents count</returns>
+        public async Task<long> DeleteAllAsync()
+        {
+            var filter = Builders<T>.Filter.Empty;
+            DeleteResult result;
+            if (vContext.Session == null)
+            {
+                result = await Collection.DeleteManyAsync(filter);
+            }
+            else
+            {
+                result = await Collection.DeleteManyAsync(vContext.Session, filter);
+            }
+            return result.DeletedCount;
+        }
         #endregion
 
         #region Search
@@ -372,7 +467,7 @@ namespace Vb.Mongo.Engine.Db
         /// <param name="filter">The filter of the query that defines the search</param>
         /// <param name="sorting">The results sort</param>
         /// <returns>Results List</returns>
-        public async Task<IList<T>> SearchAsync(FilterDefinition<T> filter, SortDefinition<T> sorting = null, int? skip = null, int? take = null)
+        internal async Task<IList<T>> SearchAsync(FilterDefinition<T> filter, SortDefinition<T> sorting = null, int? skip = null, int? take = null)
         {
             var options = new FindOptions<T>
             {
@@ -393,7 +488,7 @@ namespace Vb.Mongo.Engine.Db
         /// <param name="query">The filter of the query that defines the search</param>
         /// <param name="sorting">The results sort</param>
         /// <returns>Results List</returns>
-        public IList<T> Search(FilterDefinition<T> query, SortDefinition<T> sorting = null, int? skip = null, int? take = null)
+        internal IList<T> Search(FilterDefinition<T> query, SortDefinition<T> sorting = null, int? skip = null, int? take = null)
         {
             return Task.Run(async () => { return await SearchAsync(query, sorting, skip, take); }).Result;
         }
@@ -403,7 +498,7 @@ namespace Vb.Mongo.Engine.Db
         /// </summary>
         /// <param name="request">The query information that describes the requested search</param>
         /// <returns>Results List</returns>
-        public IList<T> Search(FindRequest<T> request)
+        internal IList<T> Search(FindRequest<T> request)
         {
             return Task.Run(async () => { return await SearchAsync(request); }).Result;
         }
@@ -413,7 +508,7 @@ namespace Vb.Mongo.Engine.Db
         /// </summary>
         /// <param name="request">The query information that describes the requested search<</param>
         /// <returns>The query information that describes the requested search<</returns>
-        public async Task<IList<T>> SearchAsync(FindRequest<T> request)
+        internal async Task<IList<T>> SearchAsync(FindRequest<T> request)
         {
 
             var filter = request.buildFilterDefinition();
@@ -437,11 +532,40 @@ namespace Vb.Mongo.Engine.Db
         /// <param name="itemsPerPage">Items per result page</param>
         /// <param name="limitUp">Max Items to return</param>
         /// <returns></returns>
-        public FindRequest<T> CreateFindRequest(int page, int itemsPerPage, int limitUp = 1000)
+        public FindRequest<T> CreateFindRequest(int page, int itemsPerPage)
         {
-            return new FindRequest<T>(this, page, itemsPerPage, limitUp);
+            return new FindRequest<T>(this, page, itemsPerPage, ResultsLimit);
+        }
+
+        /// <summary>
+        /// Return T document by given id value use with repository pattern
+        /// </summary>
+        /// <param name="id">The id we look for</param>
+        /// <returns>T doucment</returns>
+        public T FindById(object id)
+        {
+            var filter = (IdField == null) ? Builders<T>.Filter.Eq(mongoId, id) : Builders<T>.Filter.Eq(IdField, id);
+            return Collection.Find(filter).FirstOrDefault();
+        }
+
+        /// <summary>
+        /// Returns all data as queryable use with repository pattern
+        /// </summary>
+        /// <returns>Results set as IQueryable</returns>
+        public IQueryable<T> FindAll()
+        {
+            return this.Queryable;
+        }
+
+        /// <summary>
+        /// Returns a result of ducuments that satisfies expression condition use with repository pattern
+        /// </summary>
+        /// <param name="expression">query expression</param>
+        /// <returns>Results set as IQueryable</returns>
+        public IQueryable<T> FindByCondition(Expression<Func<T, bool>> expression)
+        {
+            return Collection.AsQueryable().Where(expression);
         }
         #endregion
-
     }
 }

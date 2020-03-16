@@ -13,26 +13,33 @@ namespace Vb.Mongo.Engine.Db
     /// </summary>
     public class MongoContext : IDisposable
     {
+        #region Attributes
         internal MongoClient Client { get; }
         internal string DatabaseName { get; }
         internal IClientSessionHandle Session { get; private set; }
+        internal Orchestrator Orchestrator { get; }
+        #endregion
 
-        public MongoContext(string connectionString, string databaseName)
+        #region Constractor
+        /// <summary>
+        /// Constractor
+        /// </summary>
+        /// <param name="orchestrator"></param>
+        /// <param name="connectionString"></param>
+        /// <param name="databaseName"></param>
+        internal MongoContext(Orchestrator orchestrator, string connectionString, string databaseName)
         {
             Client = new MongoClient(connectionString);
             DatabaseName = databaseName;
+            Orchestrator = orchestrator;
         }
+        #endregion
 
-        public void AutoMap<T>() where T : class, new()
-        {
-            if (!BsonClassMap.IsClassMapRegistered(typeof(T)))
-            {
-                BsonClassMap.RegisterClassMap<T>(cm =>
-                {
-                    cm.AutoMap();
-                });
-            }
-        }
+        #region Repositories
+        /// <summary>
+        /// Create a collection if the collection does not exist (use before starting transactions on empty data)
+        /// </summary>
+        /// <param name="collectionName">Collection Name</param>
         public void CreateCollectionIfNotExist(string collectionName)
         {
             var database = Client.GetDatabase(DatabaseName);
@@ -45,36 +52,82 @@ namespace Vb.Mongo.Engine.Db
                 database.CreateCollection(collectionName);
             }
         }
-        public MongoRepository<T> CreateRepository<T>() where T : class, new()
+
+        /// <summary>
+        /// Creates a repository for class of type T, this class has as id the default id attribute of mongoDB (_id)
+        /// </summary>
+        /// <typeparam name="T">T class</typeparam>
+        /// <returns>Repository instance</returns>
+        public MongoRepository<T> CreateRepository<T>() where T : class
         {
-            return new MongoRepository<T>(this, null);
+            return new MongoRepository<T>(this, null) { ResultsLimit = Orchestrator.ResultsLimit };
         }
 
-        public MongoRepository<T> CreateRepository<T>(Expression<Func<T, object>> idField) where T : class, new()
+        /// <summary>
+        /// Creates a repository for class of type T, this class has as id the default id attribute of mongoDB (_id)
+        /// </summary>
+        /// <typeparam name="T">T class</typeparam>
+        /// <param name="collectionName">the collection name</param>
+        /// <returns>Repository instance</returns>
+        public MongoRepository<T> CreateRepository<T>(string collectionName) where T : class
         {
-            return new MongoRepository<T>(this, idField);
+            return new MongoRepository<T>(this, collectionName, null) { ResultsLimit = Orchestrator.ResultsLimit };
         }
 
-        public MongoRepository<T> CreateRepository<T>(Expression<Func<T, object>> idField, string collectionName) where T : class, new()
-        {
-            return new MongoRepository<T>(this, collectionName, idField);
-        }
-
-        public MongoRepository<T> CreateRepository<T>(Expression<Func<T, object>> idField, string collectionName, Action settings) where T : class, new()
+        /// <summary>
+        /// Creates a repository for class of type T, this class has as id the default id attribute of mongoDB (_id)
+        /// </summary>
+        /// <typeparam name="T">T class</typeparam>
+        /// <param name="collectionName">the collection name</param>
+        /// <param name="settings"></param>
+        /// <returns>Repository instance</returns>
+        public MongoRepository<T> CreateRepository<T>(string collectionName, Action settings) where T : class
         {
             settings();
-            return new MongoRepository<T>(this, collectionName, idField);
+            return new MongoRepository<T>(this, collectionName, null) { ResultsLimit = Orchestrator.ResultsLimit };
         }
-        public MongoRepository<T> CreateRepository<T>(string collectionName) where T : class, new()
+        /// <summary>
+        /// Creates a repository for class of type T that has an annotation mapping of data
+        /// </summary>
+        /// <typeparam name="T">T class</typeparam>
+        /// <param name="idField">The id field of the class</param>
+        /// <returns>Repository instance</returns>
+        public MongoRepository<T> CreateRepository<T>(Expression<Func<T, object>> idField) where T : class
         {
-            return new MongoRepository<T>(this, collectionName, null);
+            return new MongoRepository<T>(this, idField) { ResultsLimit = Orchestrator.ResultsLimit };
         }
 
-        public MongoRepository<T> CreateRepository<T>(string collectionName, Action settings) where T : class, new()
+        /// <summary>
+        /// Creates a repository for class of type T that has an annotation mapping of data
+        /// </summary>
+        /// <typeparam name="T">T class</typeparam>
+        /// <param name="idField">The id field of the class</param>
+        /// <param name="collectionName">the collection name</param>
+        /// <returns>Repository instance</returns>
+        public MongoRepository<T> CreateRepository<T>(Expression<Func<T, object>> idField, string collectionName) where T : class
+        {
+            return new MongoRepository<T>(this, collectionName, idField) { ResultsLimit = Orchestrator.ResultsLimit };
+        }
+
+        /// <summary>
+        /// Creates a repository for class of type T that has an annotation mapping of data
+        /// </summary>
+        /// <typeparam name="T">T class</typeparam>
+        /// <param name="idField">The id field of the class</param>
+        /// <param name="collectionName">the collection name</param>
+        /// <param name="settings"></param>
+        /// <returns>Repository instance</returns>
+        public MongoRepository<T> CreateRepository<T>(Expression<Func<T, object>> idField, string collectionName, Action settings) where T : class
         {
             settings();
-            return new MongoRepository<T>(this, collectionName, null);
+            return new MongoRepository<T>(this, collectionName, idField) { ResultsLimit = Orchestrator.ResultsLimit };
         }
+        #endregion
+
+        #region Transactions
+        /// <summary>
+        /// Starts a transaction an error will raise if the collection does not exists or not in a replica set
+        /// </summary>
         public void BeginTransaction()
         {
             if (Session == null)
@@ -83,7 +136,9 @@ namespace Vb.Mongo.Engine.Db
             }
             Session.StartTransaction();
         }
-
+        /// <summary>
+        /// Commits the changes to mongodb
+        /// </summary>
         public void CommitTransaction()
         {
             if (Session == null)
@@ -93,10 +148,29 @@ namespace Vb.Mongo.Engine.Db
             Session.CommitTransaction();
         }
 
+        /// <summary>
+        /// rollbacks the transaction
+        /// </summary>
         public void RollbackTransaction()
         {
             Session.AbortTransaction();
         }
+        #endregion
+
+        #region Maintenance
+        /// <summary>
+        /// Drops database
+        /// </summary>
+        public void DropDatabase()
+        {
+            Client.DropDatabase(DatabaseName);
+        }
+        #endregion
+
+        #region IDisposable
+        /// <summary>
+        /// Disposes the instance
+        /// </summary>
         public void Dispose()
         {
             Dispose(true);
@@ -125,80 +199,6 @@ namespace Vb.Mongo.Engine.Db
             }
             // free native resources here if there are any
         }
-
-        public void Purge()
-        {
-            Client.DropDatabase(DatabaseName);
-        }
-        /*
-         internal String ConnectionString { get; set; }
-         static MongoContext _instance = null;
-         MongoClient _client = null;
-
-         /// <summary>
-         /// Mongo DB results limit
-         /// </summary>
-         public int ResultsLimit { get; set; } = 1000;
-
-         /// <summary>
-         /// Singleton instance of Engine Settings
-         /// </summary>
-         public static MongoContext Instance
-         {
-             get
-             {
-                 if (_instance == null)
-                 {
-                     throw new Exception("Mongo Db is not set you need to call Start Up");
-                 }
-                 return _instance;
-             }
-         }
-
-         /// <summary>
-         /// Instance of MongoDBClient
-         /// </summary>
-         public MongoClient Client
-         {
-             get
-             {
-                 if (_client == null)
-                 {
-                     _client = new MongoClient(MongoContext.Instance.ConnectionString);
-                 }
-                 return _client;
-             }
-         }
-
-         /// <summary>
-         /// Define mongoDB connection string
-         /// </summary>
-         /// <param name="connectionString">The connection string that will be used to connect 
-         /// mongodb://[username:password@]hostname[:port][/[database][?options]]</param>
-         public static void StartUp(string connectionString)
-         {
-             _instance = new MongoContext() { ConnectionString = connectionString };
-             _instance.Connect(connectionString);
-         }
-
-         /// <summary>
-         /// Connects to the MongoDB database used by the given connection string
-         /// </summary>
-         /// <param name="connectionString">The connection string that will be used to connect 
-         /// mongodb://[username:password@]hostname[:port][/[database][?options]]</param>
-         public void Connect(string connectionString)
-         {
-             _client = new MongoClient(connectionString);
-         }
-
-         /// <summary>
-         /// Deletes a database from mongoDB
-         /// </summary>
-         /// <param name="dbName">The database name</param>
-         public void DropDatabase(string dbName)
-         {
-             Client.DropDatabase(dbName);
-         }
-         */
+        #endregion
     }
 }

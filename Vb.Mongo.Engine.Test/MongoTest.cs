@@ -15,19 +15,18 @@ namespace Vb.Mongo.Engine.Test
         const string connectionString = "mongodb://localhost?replicaSet=rs0";
 
         const string dbName = "test";
-        const string dbName2 = "testkeys";
-        const string dbName3 = "testcrud";
-        const string dbName4 = "asynctest";
+        const string dbSearchName = "testsearch";
+        const string dbNameKeyVal = "testkeys";
+        const string dbNameUknown = "testuknown";
+        const string dbNameAsync = "testasync";
+        const string dbNameUqIndx = "uniqidxtest";
 
+        Orchestrator testOrchestrator;
         public MongoTest()
         {
-            using (var v = CreateContext())
-            {
-                v.AutoMap<TestItem>();
-            }
-
+            //Test data for search
             testData = new List<TestItem>
-                   {
+            {
                     new TestItem() { Id = new MongoDB.Bson.ObjectId(), Name = "beta", FieldA = "cccccc", Weight = 99 , TestId = 1 , Children=new List<Child>{ new Child() { Name ="Test"} } },
                     new TestItem() { Id = new MongoDB.Bson.ObjectId(), Name = "beta", FieldA = "dddddd", Weight = 20 , TestId = 2 ,Children=new List<Child>{ new Child() { Name ="A"} } },
                     new TestItem() { Id = new MongoDB.Bson.ObjectId(), Name = "beta", FieldA = "zzzzzz", Weight = 99 , TestId = 3 ,Children=new List<Child>{ new Child() { Name ="b"} } },
@@ -42,25 +41,46 @@ namespace Vb.Mongo.Engine.Test
                     new TestItem() { Id = new MongoDB.Bson.ObjectId(), Name = "epsilon", FieldA = "aaaaa", Weight = 7, TestId = 12 ,Children=new List<Child>{ new Child() { Name ="k"} }  },
                     new TestItem() { Id = new MongoDB.Bson.ObjectId(), Name = "teran", FieldA = "qzetq", Weight = 1, TestId = 13 ,Children=new List<Child>{ new Child() { Name ="nest"} }  },
                     new TestItem() { Id = new MongoDB.Bson.ObjectId(), Name = "teran", FieldA = "aaaaa", Weight = 1, TestId = 14 ,Children=new List<Child>{ new Child() { Name ="lala"} }  }
-                   };//
+           };
+
+            testOrchestrator = new Orchestrator(connectionString);
+            testOrchestrator.AutoMap<TestItem>();
+
+            using (var v = CreateSearchContext())
+            {
+                v.DropDatabase();
+                var repo = v.CreateRepository<TestItem>(t => t.Id);
+                repo.Index("weight", x => x.Weight);
+                repo.Index("name", x => x.Name);
+                repo.UniqueIndex("testid", x => x.TestId);
+                repo.DeleteAll();
+                repo.Store(testData);
+            }
         }
         MongoContext CreateContext()
         {
-            return new MongoContext(connectionString, dbName);
+            return testOrchestrator.CreateContext(dbName);
         }
-        MongoContext CreateContext2()
+        MongoContext CreateSearchContext()
         {
-            return new MongoContext(connectionString, dbName2);
+            return testOrchestrator.CreateContext(dbSearchName);
         }
-        MongoContext CreateContext3()
+        MongoContext CreateContextKeyValue()
         {
-            return new MongoContext(connectionString, dbName3);
+            return testOrchestrator.CreateContext(dbNameKeyVal);
         }
-        MongoContext CreateContext4()
+        MongoContext CreateContextUknown()
         {
-            return new MongoContext(connectionString, dbName4);
+            return testOrchestrator.CreateContext(dbNameUknown);
         }
-
+        MongoContext CreateContextAsync()
+        {
+            return testOrchestrator.CreateContext(dbNameAsync);
+        }
+        MongoContext CreateContextUqIndx()
+        {
+            return testOrchestrator.CreateContext(dbNameUqIndx);
+        }
         internal void SetObjectValue(string fieldName, object entity, object value)
         {
 
@@ -80,8 +100,8 @@ namespace Vb.Mongo.Engine.Test
 
             using (var dbCtx = CreateContext())
             {
-                dbCtx.Purge();
                 var repo = dbCtx.CreateRepository<TestItem>(t => t.Id);
+                repo.DeleteAll();
 
                 IList<TestItem> expected = new List<TestItem>
                     {
@@ -154,8 +174,8 @@ namespace Vb.Mongo.Engine.Test
 
             using (var dbCtx = CreateContext())
             {
-                dbCtx.Purge();
                 var repo = dbCtx.CreateRepository<TestItem>(t => t.Id);
+                repo.DeleteAll();
 
                 var bulk = new List<TestItem>();
                 for (int i = 0; i < 5; i++)
@@ -225,11 +245,10 @@ namespace Vb.Mongo.Engine.Test
         [Fact]
         public void SearchWithAnd()
         {
-            using (var dbCtx = CreateContext())
+            using (var dbCtx = CreateSearchContext())
             {
-                dbCtx.Purge();
                 var repo = dbCtx.CreateRepository<TestItem>(t => t.Id);
-                repo.Store(testData);
+
                 var query = repo.CreateFindRequest();
                 query.Find(x => x.Name, "beta");
                 query.And(x => x.FieldA, "item2");
@@ -255,11 +274,9 @@ namespace Vb.Mongo.Engine.Test
         [Fact]
         public void SearchWithOr()
         {
-            using (var dbCtx = CreateContext())
+            using (var dbCtx = CreateSearchContext())
             {
-                dbCtx.Purge();
                 var repo = dbCtx.CreateRepository<TestItem>(t => t.Id);
-                repo.Store(testData);
 
                 var query = repo.CreateFindRequest();
                 query.Or(x => x.Name, "beta");
@@ -286,11 +303,9 @@ namespace Vb.Mongo.Engine.Test
         [Fact]
         public void SearchWithNot()
         {
-            using (var dbCtx = CreateContext())
+            using (var dbCtx = CreateSearchContext())
             {
-                dbCtx.Purge();
                 var repo = dbCtx.CreateRepository<TestItem>(t => t.Id);
-                repo.Store(testData);
 
                 var query = repo.CreateFindRequest();
                 query.Not(x => x.Name, "beta");
@@ -315,11 +330,10 @@ namespace Vb.Mongo.Engine.Test
         [Fact]
         public void SearchWithLike()
         {
-            using (var dbCtx = CreateContext())
+            using (var dbCtx = CreateSearchContext())
             {
-                dbCtx.Purge();
                 var repo = dbCtx.CreateRepository<TestItem>(t => t.Id);
-                repo.Store(testData);
+
                 var query = repo.CreateFindRequest();
                 query.Find(x => x.Name, "be", EnComparator.Like);
                 query.Sort(x => x.Name);
@@ -345,11 +359,10 @@ namespace Vb.Mongo.Engine.Test
         public void SearchWithGreaterThan()
         {
 
-            using (var dbCtx = CreateContext())
+            using (var dbCtx = CreateSearchContext())
             {
-                dbCtx.Purge();
                 var repo = dbCtx.CreateRepository<TestItem>(t => t.Id);
-                repo.Store(testData);
+
                 var query = repo.CreateFindRequest();
                 query.Find(x => x.Weight, 50, EnComparator.GreaterThan);
                 query.Sort(x => x.Name);
@@ -374,11 +387,10 @@ namespace Vb.Mongo.Engine.Test
         [Fact]
         public void SearchWithLessThan()
         {
-            using (var dbCtx = CreateContext())
+            using (var dbCtx = CreateSearchContext())
             {
-                dbCtx.Purge();
                 var repo = dbCtx.CreateRepository<TestItem>(t => t.Id);
-                repo.Store(testData);
+
                 var query = repo.CreateFindRequest();
                 query.Find(x => x.Weight, 50, EnComparator.LessThan);
                 query.Sort(x => x.Name);
@@ -402,11 +414,10 @@ namespace Vb.Mongo.Engine.Test
         [Fact]
         public void SearchNested()
         {
-            using (var dbCtx = CreateContext())
+            using (var dbCtx = CreateSearchContext())
             {
-                dbCtx.Purge();
                 var repo = dbCtx.CreateRepository<TestItem>(t => t.Id);
-                repo.Store(testData);
+
                 var query = repo.CreateFindRequest();
                 query.Find(x => x.Children[0].Name, "Test");
                 var expectedIds = new List<int> { 1 };
@@ -428,11 +439,10 @@ namespace Vb.Mongo.Engine.Test
         [Fact]
         public void SearchMixed()
         {
-            using (var dbCtx = CreateContext())
+            using (var dbCtx = CreateSearchContext())
             {
-                dbCtx.Purge();
                 var repo = dbCtx.CreateRepository<TestItem>(t => t.Id);
-                repo.Store(testData);
+
                 var query = repo.CreateFindRequest();
                 query.Find(x => x.Name, "teran");
                 query.And(x => x.Children[0].Name, "nest");
@@ -462,10 +472,13 @@ namespace Vb.Mongo.Engine.Test
         {
             Assert.Throws<MongoBulkWriteException<TestItem>>(() =>
             {
-                using (var dbCtx = CreateContext())
+                using (var dbCtx = CreateContextUqIndx())
                 {
-                    dbCtx.Purge();
+                    dbCtx.DropDatabase();
+                    dbCtx.CreateCollectionIfNotExist(nameof(TestItem));
+
                     var repo = dbCtx.CreateRepository<TestItem>(t => t.Id);
+
                     repo.UniqueIndex("TestId", x => x.TestId);
                     repo.Store(testData);
                     var dbl = new List<TestItem>
@@ -495,41 +508,42 @@ namespace Vb.Mongo.Engine.Test
         {
             var result = Record.Exception(() =>
             {
-                using (var dbCtx = CreateContext2())
+                using (var dbCtx = CreateContextKeyValue())
                 {
-                    dbCtx.Purge();
-                    var repo = dbCtx.CreateRepository<object>(dbName2);
+                    var repo = dbCtx.CreateRepository<object>(dbNameKeyVal);
+                    repo.DeleteAll();
                     var obj = new System.Dynamic.ExpandoObject();
                     var props = ((IDictionary<string, object>)obj);
                     props.Add("LogType", "Info");
                     props.Add("Message", "Test key value 2");
                     repo.Store(new List<object> { obj });
-
                 }
             });
             Assert.Null(result);
         }
+
         [Fact]
         public void StoreUnknownType()
         {
             var result = Record.Exception(() =>
             {
-                using (var dbCtx = CreateContext2())
+                using (var dbCtx = CreateContextKeyValue())
                 {
-                    dbCtx.Purge();
-                    var repo = dbCtx.CreateRepository<object>(dbName2);
+                    var repo = dbCtx.CreateRepository<object>(dbNameKeyVal);
+                    repo.DeleteAll();
                     repo.Store(new List<object> { new { LogType = "Info", Message = "This is a test" } });
                 }
             });
             Assert.Null(result);
         }
+
         [Fact]
         public void SearchInUkknown()
         {
-            using (var dbCtx = CreateContext2())
+            using (var dbCtx = CreateContextKeyValue())
             {
-                dbCtx.Purge();
-                var repo = dbCtx.CreateRepository<object>(dbName2);
+                var repo = dbCtx.CreateRepository<object>(dbNameKeyVal);
+                repo.DeleteAll();
                 var obj = new { Message = "This is a test" };
                 repo.Store(new List<object> { obj });
                 var query = repo.CreateFindRequest();
@@ -542,14 +556,15 @@ namespace Vb.Mongo.Engine.Test
                 Assert.Equal("This is a test", val);
             }
         }
+
         [Fact]
         public void CRUDUknown()
         {
-            using (var dbCtx = CreateContext3())
+            using (var dbCtx = CreateContextUknown())
             {
-                dbCtx.Purge();
-                dbCtx.CreateCollectionIfNotExist(dbName3);
-                var repo = dbCtx.CreateRepository<dynamic>(dbName3);
+                dbCtx.CreateCollectionIfNotExist(dbNameUknown);
+                var repo = dbCtx.CreateRepository<dynamic>(dbNameUknown);
+                repo.DeleteAll();
                 //this is the final result
                 var expected =
                 new List<dynamic> { new { LogType = "no change", Message = "first", TestId = 111 },
@@ -598,18 +613,21 @@ namespace Vb.Mongo.Engine.Test
                 result = query.Execute();
                 Assert.Equal(0, result.Count);
             }
-
         }
         [Fact]
         public void AsyncTest()
         {
             var task = new Task(async () =>
             {
-                using (var dbCtx = CreateContext4())
+                using (var dbCtx = CreateContextAsync())
                 {
-                    dbCtx.Purge();
                     var repo = dbCtx.CreateRepository<TestItem>(t => t.Id);
+
+                    dbCtx.BeginTransaction();
+                    await repo.DeleteAllAsync();
                     await repo.StoreAsync(testData);
+                    dbCtx.CommitTransaction();
+
                     var query = repo.CreateFindRequest();
                     query.Find(x => x.Weight, 50, EnComparator.LessThan);
                     query.Sort(x => x.Name);
@@ -632,6 +650,5 @@ namespace Vb.Mongo.Engine.Test
             });
             task.Start();
         }
-
     }
 }
