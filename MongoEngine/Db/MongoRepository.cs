@@ -37,7 +37,7 @@ namespace Vb.Mongo.Engine.Db
         /// Collection name
         /// </summary>
         string CollectionName { get; }
-        
+
         /// <summary>
         /// The id field expression
         /// </summary>
@@ -159,7 +159,7 @@ namespace Vb.Mongo.Engine.Db
                 CreateIndexOptions options = new CreateIndexOptions
                 {
                     Name = name,
-                    Unique=false
+                    Unique = false
                 };
                 var builder = Builders<T>.IndexKeys;
                 var indexModel = new CreateIndexModel<T>(builder.Ascending(field), options);
@@ -249,7 +249,7 @@ namespace Vb.Mongo.Engine.Db
 #if NET451
             var options = new UpdateOptions  { IsUpsert = false };
 #else
-            var options = new ReplaceOptions{ IsUpsert = false };
+            var options = new ReplaceOptions { IsUpsert = false };
 #endif
             ReplaceOneResult result = null;
             if (Context.Session == null)
@@ -369,9 +369,9 @@ namespace Vb.Mongo.Engine.Db
 
             return writeModel;
         }
-#endregion
+        #endregion
 
-#region Delete Data
+        #region Delete Data
         /// <summary>
         /// Deletes items that are defined in the find request
         /// </summary>
@@ -449,9 +449,9 @@ namespace Vb.Mongo.Engine.Db
             }
             return result.DeletedCount;
         }
-#endregion
+        #endregion
 
-#region Search
+        #region Search
         /// <summary>
         /// Async get all data of Collection
         /// </summary>
@@ -484,13 +484,37 @@ namespace Vb.Mongo.Engine.Db
             {
                 Sort = sorting,
                 Limit = take,
-                Skip = skip
+                Skip = skip,
             };
-            using (var cursor = await Collection.FindAsync(filter, options))
+            if (Context.Session != null)
             {
-                var result = cursor.ToList();
-                return result;
+                using (var cursor = await Collection.FindAsync(Context.Session, filter, options))
+                {
+                    var result = cursor.ToList();
+                    return result;
+                }
             }
+            else
+            {
+                using (var cursor = await Collection.FindAsync(filter, options))
+                {
+                    var result = cursor.ToList();
+                    return result;
+                }
+            }
+        }
+
+        /// <summary>
+        /// Async call to get results from MongoDB
+        /// </summary>
+        /// <param name="request">The query information that describes the requested search<</param>
+        /// <returns>The query information that describes the requested search<</returns>
+        internal async Task<IList<T>> SearchAsync(FindRequest<T> request)
+        {
+
+            var filter = request.BuildFilterDefinition();
+            var sort = request.BuildSortingDefinition();
+            return await SearchAsync(filter, sort, request.Skip, request.Take);
         }
 
         /// <summary>
@@ -512,19 +536,6 @@ namespace Vb.Mongo.Engine.Db
         internal IList<T> Search(FindRequest<T> request)
         {
             return Task.Run(async () => { return await SearchAsync(request); }).Result;
-        }
-
-        /// <summary>
-        /// Async call to get results from MongoDB
-        /// </summary>
-        /// <param name="request">The query information that describes the requested search<</param>
-        /// <returns>The query information that describes the requested search<</returns>
-        internal async Task<IList<T>> SearchAsync(FindRequest<T> request)
-        {
-
-            var filter = request.BuildFilterDefinition();
-            var sort = request.BuildSortingDefinition();
-            return await SearchAsync(filter, sort, request.Skip, request.Take);
         }
 
         /// <summary>
@@ -568,6 +579,6 @@ namespace Vb.Mongo.Engine.Db
         {
             return Collection.AsQueryable().Where(expression);
         }
-#endregion
+        #endregion
     }
 }

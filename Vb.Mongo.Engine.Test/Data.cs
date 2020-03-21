@@ -20,4 +20,14 @@ namespace Vb.Mongo.Engine.Test
     {
         public string Name { get; set; }
     }
+    public class Symbol
+    {
+        public string Code { get; set; }
+        public string Caption { get; set; }
+    }
+    public class Protocol
+    {
+        public long Number { get; set; }
+        public string Caption { get; set; }
+    }
 }

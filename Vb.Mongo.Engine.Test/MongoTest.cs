@@ -6,13 +6,16 @@ using Vb.Mongo.Engine.Db;
 using Vb.Mongo.Engine.Find;
 using Xunit;
 using MongoDB.Driver;
+using MongoDB.Bson.Serialization;
+using MongoDB.Bson.Serialization.IdGenerators;
+using Vb.Mongo.Engine.IdGenerators;
 
 namespace Vb.Mongo.Engine.Test
 {
     public class MongoTest
     {
         readonly List<TestItem> testData;
-        const string connectionString = "mongodb://localhost?replicaSet=rs0";
+        const string connectionString = "mongodb://localhost?replicaSet=rs0";//
 
         const string dbName = "test";
         const string dbSearchName = "testsearch";
@@ -20,7 +23,10 @@ namespace Vb.Mongo.Engine.Test
         const string dbNameUknown = "testuknown";
         const string dbNameAsync = "testasync";
         const string dbNameUqIndx = "uniqidxtest";
-        readonly Orchestrator testOrchestrator;
+        const string dbNameCustomId = "customId";
+        const string dbNameSequence = "testseq";
+        const string dbNameTransactions = "testtransactions";
+        readonly MongoBuilder testBuilder;
         public MongoTest()
         {
             //Test data for search
@@ -42,8 +48,17 @@ namespace Vb.Mongo.Engine.Test
                     new TestItem() { Id = new MongoDB.Bson.ObjectId(), Name = "teran", FieldA = "aaaaa", Weight = 1, TestId = 14 ,Children=new List<Child>{ new Child() { Name ="lala"} }  }
            };
 
-            testOrchestrator = new Orchestrator(connectionString);
-            testOrchestrator.AutoMap<TestItem>();
+            testBuilder = new MongoBuilder(connectionString);
+
+            testBuilder.AutoMap<TestItem>();
+            testBuilder.AutoMap<Symbol>((a) =>
+            {
+                a.MapIdField(x => x.Code).SetIdGenerator(new StringObjectIdGenerator());
+            });
+            testBuilder.AutoMap<Protocol>((a) =>
+            {
+                a.MapIdField(x => x.Number).SetIdGenerator(testBuilder.CreateAutoIncrementGenerator(dbNameSequence));
+            });
 
             using (var v = CreateSearchContext())
             {
@@ -55,31 +70,50 @@ namespace Vb.Mongo.Engine.Test
                 repo.DeleteAll();
                 repo.Store(testData);
             }
+            using (var v = CreateContextCustomId())
+            {
+                v.DropDatabase();
+            }
         }
+
+        #region Contexts
         MongoContext CreateContext()
         {
-            return testOrchestrator.CreateContext(dbName);
+            return testBuilder.CreateContext(dbName);
         }
         MongoContext CreateSearchContext()
         {
-            return testOrchestrator.CreateContext(dbSearchName);
+            return testBuilder.CreateContext(dbSearchName);
         }
         MongoContext CreateContextKeyValue()
         {
-            return testOrchestrator.CreateContext(dbNameKeyVal);
+            return testBuilder.CreateContext(dbNameKeyVal);
         }
         MongoContext CreateContextUknown()
         {
-            return testOrchestrator.CreateContext(dbNameUknown);
+            return testBuilder.CreateContext(dbNameUknown);
         }
         MongoContext CreateContextAsync()
         {
-            return testOrchestrator.CreateContext(dbNameAsync);
+            return testBuilder.CreateContext(dbNameAsync);
         }
         MongoContext CreateContextUqIndx()
         {
-            return testOrchestrator.CreateContext(dbNameUqIndx);
+            return testBuilder.CreateContext(dbNameUqIndx);
         }
+        MongoContext CreateContextCustomId()
+        {
+            return testBuilder.CreateContext(dbNameCustomId);
+        }
+        MongoContext CreateContextSeq()
+        {
+            return testBuilder.CreateContext(dbNameCustomId);
+        }
+        MongoContext CreateContextTranactions()
+        {
+            return testBuilder.CreateContext(dbNameTransactions);
+        }
+        #endregion
         internal void SetObjectValue(string fieldName, object entity, object value)
         {
 
@@ -96,7 +130,6 @@ namespace Vb.Mongo.Engine.Test
         [Fact]
         public void CRUD()
         {
-
             using (var dbCtx = CreateContext())
             {
                 var repo = dbCtx.CreateRepository<TestItem>(t => t.Id);
@@ -165,8 +198,8 @@ namespace Vb.Mongo.Engine.Test
                     Assert.Equal(0, result.Count);
                 }
             }
-
         }
+
         [Fact]
         public void Bulk()
         {
@@ -184,6 +217,7 @@ namespace Vb.Mongo.Engine.Test
                         Name = "Insert",
                         FieldA = $"Insert{i + 1}",
                         Weight = 5001 + i,
+                        TestId = i + 1,
                         Children = new List<Child> { new Child() { Name = string.Format("Test {0}", i + 1) } }
                     });
                 }
@@ -218,6 +252,7 @@ namespace Vb.Mongo.Engine.Test
                         Name = "Upsert",
                         FieldA = $"New Insert{i + 1}",
                         Weight = 5001 + i,
+                        TestId = i + 1,
                         Children = new List<Child> { new Child() { Name = string.Format("Test {0}", i + 1) } }
                     });
                 }
@@ -253,12 +288,11 @@ namespace Vb.Mongo.Engine.Test
                 query.And(x => x.FieldA, "item2");
                 query.Sort(x => x.Name);
                 query.Sort(x => x.FieldA);
-                var expectedIds = new List<int> { 5 };
-                var expected = testData.Where(x => expectedIds.Contains(x.TestId)).OrderBy(x => x.Name).ThenBy(x => x.FieldA).ToList();
+                var expected = testData.Where(x => x.Name == "beta" && x.FieldA == "item2").OrderBy(x => x.Name).ThenBy(x => x.FieldA).ToList();
                 var result = query.Execute();
 
                 Assert.Equal(expected.Count, result.Count);
-                for (int i = 0; i < expectedIds.Count; i++)
+                for (int i = 0; i < expected.Count; i++)
                 {
                     var original = expected[i];
                     var created = result[i];
@@ -270,6 +304,7 @@ namespace Vb.Mongo.Engine.Test
                 }
             }
         }
+
         [Fact]
         public void SearchWithOr()
         {
@@ -282,11 +317,10 @@ namespace Vb.Mongo.Engine.Test
                 query.Or(x => x.FieldA, "item5");
                 query.Sort(x => x.Name);
                 query.Sort(x => x.FieldA);
-                var expectedIds = new List<int> { 1, 2, 3, 5, 8, 9, 10 };
-                var expected = testData.Where(x => expectedIds.Contains(x.TestId)).OrderBy(x => x.Name).ThenBy(x => x.FieldA).ToList();
+                var expected = testData.Where(x => x.Name == "beta" || x.FieldA == "item5").OrderBy(x => x.Name).ThenBy(x => x.FieldA).ToList();
                 var result = query.Execute();
                 Assert.Equal(expected.Count, result.Count);
-                for (int i = 0; i < expectedIds.Count; i++)
+                for (int i = 0; i < expected.Count; i++)
                 {
                     var original = expected[i];
                     var created = result[i];
@@ -310,11 +344,10 @@ namespace Vb.Mongo.Engine.Test
                 query.Not(x => x.Name, "beta");
                 query.Not(x => x.FieldA, "item5");
                 query.Sort(x => x.TestId);
-                var expectedIds = new List<int> { 4, 6, 7, 11, 12, 13, 14 };
-                var expected = testData.Where(x => expectedIds.Contains(x.TestId)).OrderBy(x => x.TestId).ToList();
+                var expected = testData.Where(x => x.Name != "beta" && x.FieldA != "item5").OrderBy(x => x.TestId).ToList();
                 var result = query.Execute();
                 Assert.Equal(expected.Count, result.Count);
-                for (int i = 0; i < expectedIds.Count; i++)
+                for (int i = 0; i < expected.Count; i++)
                 {
                     var original = expected[i];
                     var created = result[i];
@@ -326,6 +359,7 @@ namespace Vb.Mongo.Engine.Test
                 }
             }
         }
+
         [Fact]
         public void SearchWithLike()
         {
@@ -337,11 +371,10 @@ namespace Vb.Mongo.Engine.Test
                 query.Find(x => x.Name, "be", EnComparator.Like);
                 query.Sort(x => x.Name);
                 query.Sort(x => x.FieldA);
-                var expectedIds = new List<int> { 1, 2, 3, 5, 11 };
-                var expected = testData.Where(x => expectedIds.Contains(x.TestId)).OrderBy(x => x.Name).ThenBy(x => x.FieldA).ToList();
+                var expected = testData.Where(x => x.Name.Contains("be")).OrderBy(x => x.Name).ThenBy(x => x.FieldA).ToList();
                 var result = query.Execute();
                 Assert.Equal(expected.Count, result.Count);
-                for (int i = 0; i < expectedIds.Count; i++)
+                for (int i = 0; i < expected.Count; i++)
                 {
                     var original = expected[i];
                     var created = result[i];
@@ -366,11 +399,10 @@ namespace Vb.Mongo.Engine.Test
                 query.Find(x => x.Weight, 50, EnComparator.GreaterThan);
                 query.Sort(x => x.Name);
                 query.Sort(x => x.FieldA);
-                var expectedIds = new List<int> { 1, 3, 6, 7 };
-                var expected = testData.Where(x => expectedIds.Contains(x.TestId)).OrderBy(x => x.Name).ThenBy(x => x.FieldA).ToList();
+                var expected = testData.Where(x => x.Weight > 50).OrderBy(x => x.Name).ThenBy(x => x.FieldA).ToList();
                 var result = query.Execute();
                 Assert.Equal(expected.Count, result.Count);
-                for (int i = 0; i < expectedIds.Count; i++)
+                for (int i = 0; i < expected.Count; i++)
                 {
                     var original = expected[i];
                     var created = result[i];
@@ -394,11 +426,10 @@ namespace Vb.Mongo.Engine.Test
                 query.Find(x => x.Weight, 50, EnComparator.LessThan);
                 query.Sort(x => x.Name);
                 query.Sort(x => x.FieldA);
-                var expectedIds = new List<int> { 2, 4, 5, 8, 9, 11, 12, 13, 14 };
-                var expected = testData.Where(x => expectedIds.Contains(x.TestId)).OrderBy(x => x.Name).ThenBy(x => x.FieldA).ToList();
+                var expected = testData.Where(x => x.Weight < 50).OrderBy(x => x.Name).ThenBy(x => x.FieldA).ToList();
                 var result = query.Execute();
                 Assert.Equal(expected.Count, result.Count);
-                for (int i = 0; i < expectedIds.Count; i++)
+                for (int i = 0; i < expected.Count; i++)
                 {
                     var original = expected[i];
                     var created = result[i];
@@ -410,6 +441,7 @@ namespace Vb.Mongo.Engine.Test
                 }
             }
         }
+
         [Fact]
         public void SearchNested()
         {
@@ -419,11 +451,10 @@ namespace Vb.Mongo.Engine.Test
 
                 var query = repo.CreateFindRequest();
                 query.Find(x => x.Children[0].Name, "Test");
-                var expectedIds = new List<int> { 1 };
-                var expected = testData.Where(x => expectedIds.Contains(x.TestId)).OrderBy(x => x.Name).ThenBy(x => x.FieldA).ToList();
+                var expected = testData.Where(x => x.Children[0].Name == "Test").OrderBy(x => x.Name).ThenBy(x => x.FieldA).ToList();
                 var result = query.Execute();
                 Assert.Equal(expected.Count, result.Count);
-                for (int i = 0; i < expectedIds.Count; i++)
+                for (int i = 0; i < expected.Count; i++)
                 {
                     var original = expected[i];
                     var created = result[i];
@@ -435,6 +466,7 @@ namespace Vb.Mongo.Engine.Test
                 }
             }
         }
+
         [Fact]
         public void SearchMixed()
         {
@@ -449,11 +481,10 @@ namespace Vb.Mongo.Engine.Test
                 query.Or(x => x.TestId, 12, EnComparator.GreaterThan);
                 query.Or(x => x.Weight, 10, EnComparator.LessThan);
                 query.Sort(x => x.TestId);
-                var expectedIds = new List<int> { 9, 12, 13, 14 };
-                var expected = testData.Where(x => expectedIds.Contains(x.TestId)).OrderBy(x => x.TestId).ToList();
+                var expected = testData.Where(x => (x.Name == "teran" && x.Children[0].Name == "nest") || x.FieldA.Contains("zet") || x.TestId > 12 || x.Weight < 10).OrderBy(x => x.TestId).ToList();
                 var result = query.Execute();
                 Assert.Equal(expected.Count, result.Count);
-                for (int i = 0; i < expectedIds.Count; i++)
+                for (int i = 0; i < expected.Count; i++)
                 {
                     var original = expected[i];
                     var created = result[i];
@@ -466,6 +497,7 @@ namespace Vb.Mongo.Engine.Test
             }
 
         }
+
         [Fact]
         public void UniqueIndex()
         {
@@ -502,6 +534,7 @@ namespace Vb.Mongo.Engine.Test
                 }
             });
         }
+
         [Fact]
         public void StoreKeyValue()
         {
@@ -547,7 +580,6 @@ namespace Vb.Mongo.Engine.Test
                 repo.Store(new List<object> { obj });
                 var query = repo.CreateFindRequest();
                 query.Find("Message", "This is a test");
-                var expectedIds = new List<int> { 13, 14 };
                 var result = query.Execute();
                 Assert.Equal(1, result.Count);
                 var created = result[0];
@@ -565,14 +597,18 @@ namespace Vb.Mongo.Engine.Test
                 var repo = dbCtx.CreateRepository<dynamic>(dbNameUknown);
                 repo.DeleteAll();
                 //this is the final result
-                var expected =
-                new List<dynamic> { new { LogType = "no change", Message = "first", TestId = 111 },
+                var expected = new List<dynamic>
+                {
+                    new { LogType = "no change", Message = "first", TestId = 111 },
                     new { LogType = "Replaced", Message = "second", TestId = 111 },
-                    new { LogType = "New", Message = "third", TestId = 111 } };
+                    new { LogType = "New", Message = "third", TestId = 111 }
+                };
 
-                var init =
-                new List<dynamic> { new {LogType = "no change", Message = "first", TestId = 111 },
-                    new { LogType = "lallala", Message = "second", TestId = 111 } };
+                var init = new List<dynamic>
+                {
+                    new {LogType = "no change", Message = "first", TestId = 111 },
+                    new { LogType = "lallala", Message = "second", TestId = 111 }
+                };
 
                 //insert the item
                 repo.Store(init);
@@ -581,22 +617,26 @@ namespace Vb.Mongo.Engine.Test
                 q2.Find("TestId", 111);
                 var replace = q2.Execute();
                 Assert.Equal(init.Count, replace.Count);
+                try
+                {
+                    dbCtx.BeginTransaction();
+                    replace[1].LogType = "Replaced";
+                    repo.Replace(init[1]);
+                    var newobj = new System.Dynamic.ExpandoObject();
+                    var props = ((IDictionary<string, object>)newobj);
+                    props.Add("LogType", "New");
+                    props.Add("Message", "third");
+                    props.Add("TestId", 111);
 
-                dbCtx.BeginTransaction();
-                //var objId=ObjectValue(replace[0],
-                replace[1].LogType = "Replaced";
-                repo.Replace(init[1]);
-                //Assert.Equal(1, rresult);
-                var newobj = new System.Dynamic.ExpandoObject();
-                var props = ((IDictionary<string, object>)newobj);
-                props.Add("LogType", "New");
-                props.Add("Message", "third");
-                props.Add("TestId", 111);
-
-                replace.Add(newobj);
-                repo.Bulk(replace);
-                dbCtx.CommitTransaction();
-
+                    replace.Add(newobj);
+                    repo.Bulk(replace);
+                    dbCtx.CommitTransaction();
+                }
+                catch
+                {
+                    dbCtx.RollbackTransaction();
+                    throw;
+                }
 
                 var query = repo.CreateFindRequest();
                 query.Find("TestId", 111);
@@ -613,6 +653,59 @@ namespace Vb.Mongo.Engine.Test
                 Assert.Equal(0, result.Count);
             }
         }
+
+        [Fact]
+        public void CRUDCustomId()
+        {
+            using (var dbCtx = CreateContextCustomId())
+            {
+                dbCtx.CreateCollectionIfNotExist(dbNameCustomId);
+                var repo = dbCtx.CreateRepository<Symbol>(x => x.Code, dbNameCustomId);
+                //this is the final result
+                var expected = new List<Symbol>
+                {
+                    new Symbol{ Code = "A", Caption = "Alpha" },
+                    new Symbol{ Code = "B", Caption = "Beta" },
+                    new Symbol{ Code = "C", Caption = "Ce" }
+                };
+
+                var init = new List<Symbol>
+                {
+                    new Symbol{ Code = "A", Caption = "Alpha" },
+                    new Symbol{ Code = "B", Caption = "Be" },
+                };
+
+                //insert the item
+                try
+                {
+                    dbCtx.BeginTransaction();
+                    repo.Store(init);
+                    init[1].Caption = "Beta";
+                    init.Add(new Symbol { Code = "C", Caption = "Ce" });
+                    repo.Bulk(init);
+                    dbCtx.CommitTransaction();
+                }
+                catch
+                {
+                    dbCtx.RollbackTransaction();
+                    throw;
+                }
+
+                var result = repo.AllData();
+                Assert.Equal(expected.Count, result.Count);
+                for (int i = 0; i < expected.Count; i++)
+                {
+                    var original = expected[i];
+                    var created = result[i];
+                    Assert.Equal(original.Caption, created.Caption);
+                    Assert.Equal(original.Code, created.Code);
+                }
+                repo.DeleteAll();
+                result = repo.AllData();
+                Assert.Equal(0, result.Count);
+            }
+        }
+
         [Fact]
         public void AsyncTest()
         {
@@ -620,22 +713,28 @@ namespace Vb.Mongo.Engine.Test
             {
                 using (var dbCtx = CreateContextAsync())
                 {
+                    dbCtx.CreateCollectionIfNotExist<TestItem>();
                     var repo = dbCtx.CreateRepository<TestItem>(t => t.Id);
-
-                    dbCtx.BeginTransaction();
-                    await repo.DeleteAllAsync();
-                    await repo.StoreAsync(testData);
-                    dbCtx.CommitTransaction();
-
+                    try
+                    {
+                        dbCtx.BeginTransaction();
+                        await repo.DeleteAllAsync();
+                        await repo.StoreAsync(testData);
+                        dbCtx.CommitTransaction();
+                    }
+                    catch
+                    {
+                        dbCtx.RollbackTransaction();
+                        throw;
+                    }
                     var query = repo.CreateFindRequest();
                     query.Find(x => x.Weight, 50, EnComparator.LessThan);
                     query.Sort(x => x.Name);
                     query.Sort(x => x.FieldA);
-                    var expectedIds = new List<int> { 2, 4, 5, 8, 9, 10, 11, 12 };
-                    var expected = testData.Where(x => expectedIds.Contains(x.TestId)).OrderBy(x => x.Name).ThenBy(x => x.FieldA).ToList();
+                    var expected = testData.Where(x => x.Weight < 50).OrderBy(x => x.Name).ThenBy(x => x.FieldA).ToList();
                     var result = await query.ExecuteAsync();
                     Assert.Equal(expected.Count, result.Count);
-                    for (int i = 0; i < expectedIds.Count; i++)
+                    for (int i = 0; i < expected.Count; i++)
                     {
                         var original = expected[i];
                         var created = result[i];
@@ -647,7 +746,136 @@ namespace Vb.Mongo.Engine.Test
                     }
                 }
             });
-            task.Start();
+            task.RunSynchronously();
+        }
+
+        [Fact]
+        public void SequenceTest()
+        {
+            using (var dbCtx = CreateContextSeq())
+            {
+                var repo = dbCtx.CreateRepository<Protocol>(x => x.Number, dbNameSequence);
+                testBuilder.ResetSequence(dbNameSequence);
+                //this is the final result
+                var data =
+                new List<Protocol>
+                {
+                    new Protocol{ Caption = "Alpha" },
+                    new Protocol{ Caption = "Beta" },
+                    new Protocol{ Caption = "Gamma" },
+                    new Protocol{ Caption = "Delta" },
+                    new Protocol{ Caption = "Epsilon" },
+                    new Protocol{ Caption = "Zeta" },
+                    new Protocol{ Caption = "Ita" },
+                    new Protocol{ Caption = "Theta" },
+               };
+
+
+                //insert the item
+                repo.Store(data);
+                var query = repo.CreateFindRequest();
+                query.Sort(x => x.Number);
+                var result = query.Execute();
+                for (int i = 1; i <= result.Count; i++)
+                {
+                    Assert.Equal(i, result[i - 1].Number);
+                }
+                repo.DeleteAll();
+
+                testBuilder.ResetSequence(dbNameSequence);
+                repo.Store(data);
+                query = repo.CreateFindRequest();
+                query.Sort(x => x.Number);
+                result = query.Execute();
+                for (int i = 1; i <= result.Count; i++)
+                {
+                    Assert.Equal(i, result[i - 1].Number);
+                }
+                repo.DeleteAll();
+            }
+        }
+        [Fact]
+        public void Transactions()
+        {
+            var task = new Task(async () =>
+            {
+                using (var dbCtx = CreateContext())
+                {
+                    var repo = dbCtx.CreateRepository<TestItem>(t => t.Id);
+                    dbCtx.CreateCollectionIfNotExist<TestItem>();
+                    try
+                    {
+                        IList<TestItem> expected = new List<TestItem>
+                        {
+                            new TestItem()
+                            {
+                                    Name = "beta",
+                                    FieldA = "cccccc",
+                                    Weight = 99 ,
+                                    TestId = 111 ,
+                                    Children =new List<Child>{ new Child() { Name ="Test"}
+                            }
+                            }
+                        };
+                        dbCtx.BeginTransaction();
+                        //insert the item
+                        await repo.StoreAsync(expected);
+                        //find the item
+                        {
+                            var query = repo.CreateFindRequest();
+                            query.Find(x => x.TestId, 111);
+                            var result = await query.ExecuteAsync();
+                            Assert.Equal(expected.Count, result.Count);
+                            for (int i = 0; i < expected.Count; i++)
+                            {
+                                var original = expected[i];
+                                var created = result[i];
+                                Assert.Equal(original.Id, created.Id);
+                                Assert.Equal(original.Name, created.Name);
+                                Assert.Equal(original.FieldA, created.FieldA);
+                                Assert.Equal(original.Weight, created.Weight);
+                                Assert.Equal(original.Children[0].Name, created.Children[0].Name);
+                            }
+                            expected = result;
+                        }
+                        //update the item
+                        expected[0].Name = "omega";
+                        expected[0].FieldA = "omega";
+                        expected[0].Weight = 3;
+                        expected[0].Children = new List<Child>() { new Child() { Name = "Updated" }, new Child() { Name = "MoreChild" } };
+                        await repo.ReplaceAsync(expected[0]);
+                        {
+                            var query = repo.CreateFindRequest();
+                            query.Find(x => x.TestId, 111);
+                            var result = query.Execute();
+                            Assert.Equal(expected.Count, result.Count);
+                            for (int i = 0; i < expected.Count; i++)
+                            {
+                                var original = expected[i];
+                                var created = result[i];
+                                Assert.Equal(original.Id, created.Id);
+                                Assert.Equal(original.Name, created.Name);
+                                Assert.Equal(original.FieldA, created.FieldA);
+                                Assert.Equal(original.Weight, created.Weight);
+                                Assert.Equal(original.Children[0].Name, created.Children[0].Name);
+                            }
+                        }
+                        {
+                            var query = repo.CreateFindRequest();
+                            query.Find(x => x.TestId, 111);
+                            await repo.DeleteAsync(query);
+                            var result = await query.ExecuteAsync();
+                            Assert.Equal(0, result.Count);
+                        }
+                        dbCtx.CommitTransaction();
+                    }
+                    catch
+                    {
+                        dbCtx.RollbackTransaction();
+                    }
+                }
+            });
+            task.RunSynchronously();
         }
     }
 }

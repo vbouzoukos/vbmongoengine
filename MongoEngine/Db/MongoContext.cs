@@ -17,25 +17,33 @@ namespace Vb.Mongo.Engine.Db
         internal MongoClient Client { get; }
         internal string DatabaseName { get; }
         internal IClientSessionHandle Session { get; private set; }
-        internal Orchestrator Orchestrator { get; }
+        internal MongoBuilder Builder { get; }
         #endregion
 
         #region Constractor
         /// <summary>
         /// Constractor
         /// </summary>
-        /// <param name="orchestrator"></param>
+        /// <param name="builder"></param>
         /// <param name="connectionString"></param>
         /// <param name="databaseName"></param>
-        internal MongoContext(Orchestrator orchestrator, string connectionString, string databaseName)
+        internal MongoContext(MongoBuilder builder, string connectionString, string databaseName)
         {
             Client = new MongoClient(connectionString);
             DatabaseName = databaseName;
-            Orchestrator = orchestrator;
+            Builder = builder;
         }
         #endregion
 
         #region Repositories
+        /// <summary>
+        /// Create a collection if the collection does not exist (use before starting transactions on empty data)
+        /// </summary>
+        /// <typeparam name="T">Class which name will be used for indexing</typeparam>
+        public void CreateCollectionIfNotExist<T>() where T : class
+        {
+            CreateCollectionIfNotExist(typeof(T).Name);
+        }
         /// <summary>
         /// Create a collection if the collection does not exist (use before starting transactions on empty data)
         /// </summary>
@@ -60,7 +68,7 @@ namespace Vb.Mongo.Engine.Db
         /// <returns>Repository instance</returns>
         public MongoRepository<T> CreateRepository<T>() where T : class
         {
-            return new MongoRepository<T>(this, null) { ResultsLimit = Orchestrator.ResultsLimit };
+            return new MongoRepository<T>(this, null) { ResultsLimit = Builder.ResultsLimit };
         }
 
         /// <summary>
@@ -71,7 +79,7 @@ namespace Vb.Mongo.Engine.Db
         /// <returns>Repository instance</returns>
         public MongoRepository<T> CreateRepository<T>(string collectionName) where T : class
         {
-            return new MongoRepository<T>(this, collectionName, null) { ResultsLimit = Orchestrator.ResultsLimit };
+            return new MongoRepository<T>(this, collectionName, null) { ResultsLimit = Builder.ResultsLimit };
         }
 
         /// <summary>
@@ -84,7 +92,7 @@ namespace Vb.Mongo.Engine.Db
         public MongoRepository<T> CreateRepository<T>(string collectionName, Action settings) where T : class
         {
             settings();
-            return new MongoRepository<T>(this, collectionName, null) { ResultsLimit = Orchestrator.ResultsLimit };
+            return new MongoRepository<T>(this, collectionName, null) { ResultsLimit = Builder.ResultsLimit };
         }
         /// <summary>
         /// Creates a repository for class of type T that has an annotation mapping of data
@@ -94,7 +102,7 @@ namespace Vb.Mongo.Engine.Db
         /// <returns>Repository instance</returns>
         public MongoRepository<T> CreateRepository<T>(Expression<Func<T, object>> idField) where T : class
         {
-            return new MongoRepository<T>(this, idField) { ResultsLimit = Orchestrator.ResultsLimit };
+            return new MongoRepository<T>(this, idField) { ResultsLimit = Builder.ResultsLimit };
         }
 
         /// <summary>
@@ -106,7 +114,7 @@ namespace Vb.Mongo.Engine.Db
         /// <returns>Repository instance</returns>
         public MongoRepository<T> CreateRepository<T>(Expression<Func<T, object>> idField, string collectionName) where T : class
         {
-            return new MongoRepository<T>(this, collectionName, idField) { ResultsLimit = Orchestrator.ResultsLimit };
+            return new MongoRepository<T>(this, collectionName, idField) { ResultsLimit = Builder.ResultsLimit };
         }
 
         /// <summary>
@@ -120,7 +128,7 @@ namespace Vb.Mongo.Engine.Db
         public MongoRepository<T> CreateRepository<T>(Expression<Func<T, object>> idField, string collectionName, Action settings) where T : class
         {
             settings();
-            return new MongoRepository<T>(this, collectionName, idField) { ResultsLimit = Orchestrator.ResultsLimit };
+            return new MongoRepository<T>(this, collectionName, idField) { ResultsLimit = Builder.ResultsLimit };
         }
         #endregion
 

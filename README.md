@@ -8,16 +8,16 @@ A simple Engine to connect insert and search Items in a mongo database.
 ## Usage Example
 
 ### Set up a connection to mongo DB
-Connection is managed via the Orchestrator class. To connect to a mongoDB database you need to setup the connection string in an Orchestrator class instance and use it to create a context to the database. From there you can create a repository to the collection that will be accessed. 
+Connection is managed via the MongoBuilder class. To connect to a mongoDB database you need to setup the connection string in an MongoBuilder class instance and use it to create a context to the database. From there you can create a repository to the collection that will be accessed. 
 
-            //create an orchestrator instance
-            var myOrchestrator = new Orchestrator("mongodb://localhost");
-            using (var ctx =testOrchestrator.CreateContext("mydb"))
+            //create an MongoBuilder instance
+            var myMongoBuilder = new MongoBuilder("mongodb://localhost");
+            using (var ctx =testMongoBuilder.CreateContext("mydb"))
             {
             	var repo = v.CreateRepository<TestItem>(t => t.Id);
             	//Data manipulation goes here
             }
-            using (var ctx =testOrchestrator.CreateContext("mydb2"))
+            using (var ctx =testMongoBuilder.CreateContext("mydb2"))
             {
             	var repo = v.CreateRepository<Product>("productCollection"); 
             	//Data manipulation goes here
@@ -27,7 +27,7 @@ Connection is managed via the Orchestrator class. To connect to a mongoDB databa
 
 After setting up a repository instance you can insert data using the store function like the following example
 
-            using (var ctx =testOrchestrator.CreateContext("mydb"))
+            using (var ctx =testMongoBuilder.CreateContext("mydb"))
             {
             	var repo = v.CreateRepository<TestItem>(t => t.Id);
             	//store data
@@ -141,7 +141,7 @@ Bulk, BulkAsync(For asynchronus execution) are used to mass insert or update dat
 
 **items** The list of entities that contains the updated and new data.
 
-### **MongoRepository**
+### MongoRepository
 
 As seen above you can use any of the MongoContext class overloaded CreateRepository function to create a MongoRepository instance .
 
@@ -153,9 +153,9 @@ The CreateRepository has defined the following parameters.
 
 **settings** (**optional**) A block of code that may needed to execute custom code before the initialization of the repository eg Creating the collection or set the auto mapping.
 
-### **Automapping**
+### Automapping
 
-Orchestrator offers access to the mapping mechanism of c# MongoDB driver with the **AutoMap** function
+MongoBuilder offers access to the mapping mechanism of c# MongoDB driver with the **AutoMap** function
 
 Use AutoMap to perform the mapping using the class definition and MongoDB annotations
 
@@ -163,8 +163,34 @@ Or use the **attributesMapping** optional parameter to set how the data is mappe
 
 ### Transactions
 
+Transactions require a replica set to be set in order to work. For more information how to set a replica set see the following from mongoDB documentation:
 
+[Deploy a Replica Set](https://docs.mongodb.com/manual/tutorial/deploy-replica-set/)
 
+[Deploy a Replica Set for Testing and Development](https://docs.mongodb.com/manual/tutorial/deploy-replica-set-for-testing/)
+
+Transactions work on existing collections. So before inserting data you need to create the collection.
+
+Transactions are managed via the mongoDB context and you can insert multiple documents this way.
+
+- To start a transaction you use the **BeginTransaction** function of MongoDBContext.
+- To commit the transaction use the **CommitTransaction**.
+- In case you need to abort the transaction use the **RollbackTransaction** transaction.
+
+Below is an example of manipulating data in transaction.
+
+                    try
+                    {
+                        dbCtx.BeginTransaction();
+                        await repo.Delete(deleteRequest);
+                        await repo.Store(collection);
+                        dbCtx.CommitTransaction();
+                    }
+                    catch
+                    {
+                        dbCtx.RollbackTransaction();
+                        throw;
+                    }
 ## Releases
 
 **xx/0x/2020: Version 0.4**
