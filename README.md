@@ -169,7 +169,7 @@ Transactions require a replica set to be set in order to work. For more informat
 
 [Deploy a Replica Set for Testing and Development](https://docs.mongodb.com/manual/tutorial/deploy-replica-set-for-testing/)
 
-Transactions work on existing collections. So before inserting data you need to create the collection.
+Transactions work on existing collections. So before inserting data you **need to create the collection**.
 
 Transactions are managed via the mongoDB context and you can insert multiple documents this way.
 

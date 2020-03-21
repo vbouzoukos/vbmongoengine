@@ -39,7 +39,7 @@ namespace Vb.Mongo.Engine.IdGenerators
                 {
                     var repo = ctx.CreateRepository<AutoIncrement>(x => x.Id);
                     repo.UniqueIndex("AutoIncrementCollection", x => x.CollectionName);
-                    var sequence = repo.FindByCondition(x => x.CollectionName == CollectionName).FirstOrDefault();
+                    var sequence = repo.Find(x => x.CollectionName == CollectionName).FirstOrDefault();
                     if (sequence == null)
                     {
                         generated = 1;

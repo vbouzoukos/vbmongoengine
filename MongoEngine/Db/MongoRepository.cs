@@ -373,6 +373,24 @@ namespace Vb.Mongo.Engine.Db
 
         #region Delete Data
         /// <summary>
+        /// Deletes items that are defined by the expression
+        /// </summary>
+        /// <param name="expression">Delete criterion</param>
+        /// <returns>Count of deleted items</returns>
+        public long Delete(Expression<Func<T, bool>> expression)
+        {
+            DeleteResult result;
+            if (Context.Session == null)
+            {
+                result = Collection.DeleteMany(expression);
+            }
+            else
+            {
+                result = Collection.DeleteMany(Context.Session, expression);
+            }
+            return result.DeletedCount;
+        }
+        /// <summary>
         /// Deletes items that are defined in the find request
         /// </summary>
         /// <param name="request">Find request to get items to delete</param>
@@ -575,7 +593,7 @@ namespace Vb.Mongo.Engine.Db
         /// </summary>
         /// <param name="expression">query expression</param>
         /// <returns>Results set as IQueryable</returns>
-        public IQueryable<T> FindByCondition(Expression<Func<T, bool>> expression)
+        public IQueryable<T> Find(Expression<Func<T, bool>> expression)
         {
             return Collection.AsQueryable().Where(expression);
         }

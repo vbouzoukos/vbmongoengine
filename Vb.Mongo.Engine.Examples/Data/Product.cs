@@ -11,5 +11,9 @@ namespace Vb.Mongo.Engine.Examples.Data
         public string Code { get; set; }
         public double Price { get; set; }
         public string CategoryCode { get; set; }
+        public override string ToString()
+        {
+            return $"{{\n\tId:{Id}\n\tName:{Name}\n\tCode:{Code}\n\tPrice:{Price:F2}\n\tCategoryCode:{CategoryCode}\n}}";
+        }
     }
 }

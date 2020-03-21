@@ -102,7 +102,7 @@ namespace Vb.Mongo.Engine.Db
             {
                 var repo = ctx.CreateRepository<AutoIncrement>(x => x.Id);
                 repo.UniqueIndex("AutoIncrementCollection", x => x.CollectionName);
-                var sequence = repo.FindByCondition(x => x.CollectionName == collectionName).FirstOrDefault();
+                var sequence = repo.Find(x => x.CollectionName == collectionName).FirstOrDefault();
                 if (sequence == null)
                 {
                     sequence = new AutoIncrement
