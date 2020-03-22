@@ -4,12 +4,12 @@ using System.Linq;
 using System.Linq.Expressions;
 using System.Text;
 
-namespace Vb.Mongo.Engine.Examples
+namespace Vb.Mongo.Engine.Examples.RepositoryPattern
 {
     /// <summary>
     /// Interface for repository pattern
     /// </summary>
-    /// <typeparam name="T"></typeparam>
+    /// <typeparam name="T">Generic class</typeparam>
     public interface IRepository<T>
     {
         T FindById(object id);

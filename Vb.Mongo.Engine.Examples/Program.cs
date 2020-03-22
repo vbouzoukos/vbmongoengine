@@ -16,21 +16,13 @@ namespace Vb.Mongo.Engine.Examples
             string Help = @"
 Commands are:
 1: Simple CRUD example
+2: Use with repository pattern 
 H:Help
 Esc: Exit examples";
-            //Load examples configuration
-            var builder = new ConfigurationBuilder()
-                .SetBasePath(Directory.GetCurrentDirectory())
-                .AddJsonFile("config.json", optional: true, reloadOnChange: true);
-            IConfigurationRoot config = builder.Build();
-            //Create examples Mongo Builder
-            var builderMongo = new MongoBuilder(config["connectionString"]);
             //Start up examples engine
-            var examples = new ExampleEngine(builderMongo);
             //Map examples entities to mongoDB collectiona
-            examples.MappingData();
+            ExampleEngine.Instance.ExecuteExamples(EnExampleMode.StartUp);
 
-            Console.WriteLine("Welcome to Vb Mongo Engine examples!");
             Console.WriteLine(Help);
             ConsoleKeyInfo cki;
             do
@@ -67,7 +59,10 @@ Esc: Exit examples";
                             terminate = promptTermination;
                             break;
                         case ConsoleKey.D1:
-                            examples.ExecuteExamples(1);
+                            ExampleEngine.Instance.ExecuteExamples(EnExampleMode.Crud);
+                            break;
+                        case ConsoleKey.D2:
+                            ExampleEngine.Instance.ExecuteExamples(EnExampleMode.RepositoryPattern);
                             break;
                         default:
                             Console.WriteLine("");

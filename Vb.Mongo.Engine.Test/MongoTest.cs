@@ -691,7 +691,7 @@ namespace Vb.Mongo.Engine.Test
                     throw;
                 }
 
-                var result = repo.AllData();
+                var result = repo.AllData().ToList();
                 Assert.Equal(expected.Count, result.Count);
                 for (int i = 0; i < expected.Count; i++)
                 {
@@ -701,8 +701,8 @@ namespace Vb.Mongo.Engine.Test
                     Assert.Equal(original.Code, created.Code);
                 }
                 repo.DeleteAll();
-                result = repo.AllData();
-                Assert.Equal(0, result.Count);
+                result = repo.AllData().ToList();
+                Assert.Empty(result);
             }
         }
 

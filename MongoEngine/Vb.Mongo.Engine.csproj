@@ -17,6 +17,10 @@
     <PackageLicenseFile>LICENSE.txt</PackageLicenseFile>
   </PropertyGroup>
 
+  <PropertyGroup Condition="'$(Configuration)|$(TargetFramework)|$(Platform)'=='Debug|netstandard1.5|AnyCPU'">
+    <NoWarn>1701;1702</NoWarn>
+  </PropertyGroup>
+
   <ItemGroup Condition="'$(TargetFramework)' == 'netstandard2.1' or '$(TargetFramework)' == 'netstandard1.5'  or '$(TargetFramework)' == 'netstandard1.6' or '$(TargetFramework)' == 'netstandard2.0' or '$(TargetFramework)' == 'net452' ">
     <PackageReference Include="MongoDB.Driver" Version="2.10.2" />
   </ItemGroup>
@@ -30,6 +34,10 @@
       <Pack>True</Pack>
       <PackagePath></PackagePath>
     </None>
+  </ItemGroup>
+  
+  <ItemGroup>
+    <Folder Include="Properties\" />
   </ItemGroup>
   
 </Project>

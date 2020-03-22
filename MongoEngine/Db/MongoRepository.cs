@@ -170,7 +170,7 @@ namespace Vb.Mongo.Engine.Db
 
         #region Store Data
         /// <summary>
-        /// Stores an item
+        /// Stores an item (Use with repository pattern to create a document)
         /// </summary>
         /// <param name="item">Data to store</param>
         public void Store(T item)
@@ -203,7 +203,7 @@ namespace Vb.Mongo.Engine.Db
         /// Stores a set of Data in Data Base
         /// </summary>
         /// <param name="items">Data to store</param>
-        public void Store(IList<T> items)
+        public void Store(IEnumerable<T> items)
         {
             if (Context.Session == null)
             {
@@ -219,7 +219,7 @@ namespace Vb.Mongo.Engine.Db
         /// Stores a set of Data in Data Base asynchrony
         /// </summary>
         /// <param name="items">Data to store</param>
-        public async Task StoreAsync(IList<T> items)
+        public async Task StoreAsync(IEnumerable<T> items)
         {
             if (Context.Session == null)
             {
@@ -300,7 +300,7 @@ namespace Vb.Mongo.Engine.Db
         /// Updates or inserts a collection of items in database (Use with repository pattern to Update a collection)
         /// </summary>
         /// <param name="items">Data to insert or store</param>
-        public void Bulk(IList<T> items)
+        public void Bulk(IEnumerable<T> items)
         {
             var options = new BulkWriteOptions { IsOrdered = true };
             var writeModel = BulkCollection(items);
@@ -318,7 +318,7 @@ namespace Vb.Mongo.Engine.Db
         /// Updates or inserts a collection of items in database asynchrony (Use with repository pattern to Update a collection)
         /// </summary>
         /// <param name="items">Data to insert or store</param>
-        public async Task BulkAsync(IList<T> items)
+        public async Task BulkAsync(IEnumerable<T> items)
         {
             var options = new BulkWriteOptions { IsOrdered = true };
             var writeModel = BulkCollection(items);
@@ -337,7 +337,7 @@ namespace Vb.Mongo.Engine.Db
         /// </summary>
         /// <param name="items">List for the items that will be inserted with a bulk operation</param>
         /// <returns>Write Model</returns>
-        private IEnumerable<WriteModel<T>> BulkCollection(IList<T> items)
+        private IEnumerable<WriteModel<T>> BulkCollection(IEnumerable<T> items)
         {
             var writeModel = new List<WriteModel<T>>();
 
@@ -369,9 +369,28 @@ namespace Vb.Mongo.Engine.Db
 
             return writeModel;
         }
+
         #endregion
 
         #region Delete Data
+        private IEnumerable<WriteModel<T>> DeletionCollection(IEnumerable<T> items)
+        {
+            var deleteModel = new List<WriteModel<T>>();
+
+            foreach (var c in items)
+            {
+                if (IdField == null)
+                {
+                        deleteModel.Add(new DeleteOneModel<T>(Builders<T>.Filter.Eq(mongoId, Reflection.ObjectValue(mongoId, c))));
+                }
+                else
+                {
+                    deleteModel.Add(new DeleteOneModel<T>(Builders<T>.Filter.Eq(IdField, Reflection.ObjectValue(IdField, c))));
+                 }
+            }
+            return deleteModel;
+        }
+
         /// <summary>
         /// Deletes items that are defined by the expression
         /// </summary>
@@ -390,6 +409,118 @@ namespace Vb.Mongo.Engine.Db
             }
             return result.DeletedCount;
         }
+
+        /// <summary>
+        /// Deletes items that are defined by the expression async
+        /// </summary>
+        /// <param name="expression">Delete criterion</param>
+        /// <returns>Count of deleted items</returns>
+        public async Task<long> DeleteAsync(Expression<Func<T, bool>> expression)
+        {
+            DeleteResult result;
+            if (Context.Session == null)
+            {
+                result = await Collection.DeleteManyAsync(expression);
+            }
+            else
+            {
+                result = await Collection.DeleteManyAsync(Context.Session, expression);
+            }
+            return result.DeletedCount;
+        }
+
+        /// <summary>
+        /// Deletes the given items (Use with repository pattern)
+        /// </summary>
+        /// <param name="items">List for the items that will be deleted with a bulk operation</param>
+        public void BulkDelete(IEnumerable<T> items)
+        {
+            var options = new BulkWriteOptions { IsOrdered = true };
+            var delModel = DeletionCollection(items);
+            if (Context.Session == null)
+            {
+                Collection.BulkWrite(delModel, options);
+            }
+            else
+            {
+                Collection.BulkWrite(Context.Session, delModel, options);
+            }
+        }
+
+        /// <summary>
+        /// Deletes the given items async(Use with repository pattern)
+        /// </summary>
+        /// <param name="items"></param>
+        public async Task BulkDeleteAsync(IEnumerable<T> items)
+        {
+            var options = new BulkWriteOptions { IsOrdered = true };
+            var delModel = DeletionCollection(items);
+            if (Context.Session == null)
+            {
+                await Collection.BulkWriteAsync(delModel, options);
+            }
+            else
+            {
+                await Collection.BulkWriteAsync(Context.Session, delModel, options);
+            }
+        }
+        /// <summary>
+        /// Deletes given item (Use with repository pattern)
+        /// </summary>
+        /// <param name="entity">Entity to be deleted</param>
+        /// <returns></returns>
+        public long Delete(T item)
+        {
+            DeleteResult result;
+            FilterDefinition<T> filter;
+            if (IdField == null)
+            {
+                filter = Builders<T>.Filter.Eq(mongoId, Reflection.ObjectValue(mongoId, item));
+            }
+            else
+            {
+                filter = Builders<T>.Filter.Eq(IdField, Reflection.ObjectValue(IdField, item));
+            }
+            if (Context.Session == null)
+            {
+                result = Collection.DeleteOne(filter);
+            }
+            else
+            {
+                result = Collection.DeleteOne(Context.Session, filter);
+            }
+            return
+                result.DeletedCount;
+        }
+
+        /// <summary>
+        /// Deletes given item async (Use with repository pattern)
+        /// </summary>
+        /// <param name="entity">Entity to be deleted</param>
+        /// <returns></returns>
+        public async Task<long> DeleteAsync(T item)
+        {
+            DeleteResult result;
+            FilterDefinition<T> filter;
+            if (IdField == null)
+            {
+                filter = Builders<T>.Filter.Eq(mongoId, Reflection.ObjectValue(mongoId, item));
+            }
+            else
+            {
+                filter = Builders<T>.Filter.Eq(IdField, Reflection.ObjectValue(IdField, item));
+            }
+            if (Context.Session == null)
+            {
+                result = await Collection.DeleteOneAsync(filter);
+            }
+            else
+            {
+                result = await Collection.DeleteOneAsync(Context.Session, filter);
+            }
+            return result.DeletedCount;
+        }
+
         /// <summary>
         /// Deletes items that are defined in the find request
         /// </summary>
@@ -473,7 +604,7 @@ namespace Vb.Mongo.Engine.Db
         /// <summary>
         /// Async get all data of Collection
         /// </summary>
-        public async Task<IList<T>> AllDataAsync()
+        public async Task<IEnumerable<T>> AllDataAsync()
         {
             using (var cursor = await Collection.FindAsync(_ => true))
             {
@@ -485,7 +616,7 @@ namespace Vb.Mongo.Engine.Db
         /// <summary>
         /// Get all data of collection
         /// </summary>
-        public IList<T> AllData()
+        public IEnumerable<T> AllData()
         {
             return Task.Run(async () => { return await AllDataAsync(); }).Result;
         }
@@ -527,7 +658,7 @@ namespace Vb.Mongo.Engine.Db
         /// </summary>
         /// <param name="request">The query information that describes the requested search<</param>
         /// <returns>The query information that describes the requested search<</returns>
-        internal async Task<IList<T>> SearchAsync(FindRequest<T> request)
+        internal async Task<IEnumerable<T>> SearchAsync(FindRequest<T> request)
         {
 
             var filter = request.BuildFilterDefinition();
@@ -551,7 +682,7 @@ namespace Vb.Mongo.Engine.Db
         /// </summary>
         /// <param name="request">The query information that describes the requested search</param>
         /// <returns>Results List</returns>
-        internal IList<T> Search(FindRequest<T> request)
+        internal IEnumerable<T> Search(FindRequest<T> request)
         {
             return Task.Run(async () => { return await SearchAsync(request); }).Result;
         }

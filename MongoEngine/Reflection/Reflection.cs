@@ -135,6 +135,14 @@ namespace Vb.Mongo.Engine.Entity
             {
                 constant = ObjectId.Empty.ToString();
             }
+            else if (item.Type == typeof(long))
+            {
+                constant = 0L;
+            }
+            else if (item.Type == typeof(int))
+            {
+                constant = 0;
+            }
             var objPropExp = Expression.Constant(constant);
             var equalExp = Expression.Equal(item, objPropExp);
             var lambda = Expression.Lambda<Func<bool>>(equalExp);
