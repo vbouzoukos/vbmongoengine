@@ -1,5 +1,6 @@
 ﻿using MongoDB.Bson;
 using MongoDB.Bson.Serialization;
+using MongoDB.Driver;
 using System;
 using System.Linq;
 using Vb.Mongo.Engine.IdGenerators;
@@ -20,18 +21,51 @@ namespace Vb.Mongo.Engine.Db
         #endregion
 
         #region Attributes
-        internal string ConnectionString { get; set; }
         internal int ResultsLimit { get; private set; }
+        internal MongoClient MongoDbClient { get; private set; }
         #endregion
 
         #region Constractor
         /// <summary>
-        /// constractor
+        /// Constractor using a mongoDB connection string
         /// </summary>
         /// <param name="connectionString">connection string to mongoDB</param>
+        /// <param name="resultsLimit">Limits result (optional)</param>
         public MongoBuilder(string connectionString, int resultsLimit = cResultsLimit)
         {
-            ConnectionString = connectionString;
+            MongoDbClient = new MongoClient(connectionString);
+            BuilderInitialization(resultsLimit);
+        }
+
+        /// <summary>
+        /// Constractor using MongoClientSettings of MongoDb Driver
+        /// </summary>
+        /// <param name="settings">MongoClientSettings instance</param>
+        /// <param name="resultsLimit">Limits result (optional)</param>
+        public MongoBuilder(MongoClientSettings settings, int resultsLimit = cResultsLimit)
+        {
+            MongoDbClient = new MongoClient(settings);
+            BuilderInitialization(resultsLimit);
+        }
+
+        /// <summary>
+        /// Constractor using MongoUrl of MongoDb Driver
+        /// </summary>
+        /// <param name="mongoUrl">MongoUrl instance</param>
+        /// <param name="resultsLimit">Limits result (optional)</param>
+        public MongoBuilder(MongoUrl mongoUrl, int resultsLimit = cResultsLimit)
+        {
+            MongoDbClient = new MongoClient(mongoUrl);
+            BuilderInitialization(resultsLimit);
+        }
+
+        /// <summary>
+        /// Common initialization
+        /// </summary>
+        /// <param name="resultsLimit">Limits result</param>
+        void BuilderInitialization(int resultsLimit)
+        {
+            //set results limit
             ResultsLimit = resultsLimit;
             //map IdGenerators
             AutoMap<AutoIncrement>();
@@ -50,7 +84,7 @@ namespace Vb.Mongo.Engine.Db
             {
                 throw new Exception(string.Format("{0} is used internally for sequence generator", cSequenceDatabase));
             }
-            return new MongoContext(this, ConnectionString, databaseName);
+            return new MongoContext(this, MongoDbClient, databaseName);
         }
         /// <summary>
         /// 
@@ -58,7 +92,7 @@ namespace Vb.Mongo.Engine.Db
         /// <returns></returns>
         internal MongoContext SequenceContext()
         {
-            return new MongoContext(this, ConnectionString, cSequenceDatabase);
+            return new MongoContext(this, MongoDbClient, cSequenceDatabase);
         }
         #endregion
 

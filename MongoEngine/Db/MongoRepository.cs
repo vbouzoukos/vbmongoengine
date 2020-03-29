@@ -726,7 +726,14 @@ namespace Vb.Mongo.Engine.Db
         /// <returns>Results set as IQueryable</returns>
         public IQueryable<T> Find(Expression<Func<T, bool>> expression)
         {
-            return Collection.AsQueryable().Where(expression);
+            if (Context.Session == null)
+            {
+                return Collection.AsQueryable().Where(expression);
+            }
+            else
+            {
+                return Collection.Find(Context.Session, expression).ToEnumerable().AsQueryable();
+            }
         }
         #endregion
     }

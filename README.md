@@ -204,6 +204,9 @@ Fixed bug on Transactions
 Added non unique indexes support
 Include Example projects
 Use version 2.10.2 of MongoDB.Driver
+
+Added support for
+netstandard2.1
 ```
 
 **22/10/2019: Version 0.3**

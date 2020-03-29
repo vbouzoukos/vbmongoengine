@@ -24,12 +24,12 @@ namespace Vb.Mongo.Engine.Db
         /// <summary>
         /// Constractor
         /// </summary>
-        /// <param name="builder"></param>
-        /// <param name="connectionString"></param>
-        /// <param name="databaseName"></param>
-        internal MongoContext(MongoBuilder builder, string connectionString, string databaseName)
+        /// <param name="builder">MongoBulder</param>
+        /// <param name="client">MongoClient containing connection</param>
+        /// <param name="databaseName">Context database</param>
+        internal MongoContext(MongoBuilder builder, MongoClient client, string databaseName)
         {
-            Client = new MongoClient(connectionString);
+            Client = client;
             DatabaseName = databaseName;
             Builder = builder;
         }
@@ -161,6 +161,10 @@ namespace Vb.Mongo.Engine.Db
         /// </summary>
         public void RollbackTransaction()
         {
+            if (Session == null)
+            {
+                throw new ArgumentNullException("Cannot rollback transaction without starting one");
+            }
             Session.AbortTransaction();
         }
         #endregion

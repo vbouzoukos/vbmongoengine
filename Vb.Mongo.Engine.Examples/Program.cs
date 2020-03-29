@@ -13,21 +13,23 @@ namespace Vb.Mongo.Engine.Examples
         {
             bool terminate = false;
             bool promptTermination = false;
-            string Help = @"
-Commands are:
-1: Simple CRUD example
-2: Use with repository pattern 
-H:Help
-Esc: Exit examples";
+            bool ExitConfirmation = false;
+            string Help = "Commands are:\r\n1: Simple CRUD example\r\n2: Use with repository pattern \r\nH:Help\r\nEsc: Exit examples\r\n";
             //Start up examples engine
             //Map examples entities to mongoDB collectiona
             ExampleEngine.Instance.ExecuteExamples(EnExampleMode.StartUp);
 
-            Console.WriteLine(Help);
+            Console.Write(Help);
+
             ConsoleKeyInfo cki;
             do
             {
-                cki = Console.ReadKey();
+                if (ExitConfirmation)
+                {
+                    ExitConfirmation = false;
+                    Console.WriteLine("Exit the examples program? (Y/N)");
+                }
+                cki = Console.ReadKey(true);
                 //terminate examples with escape
                 if (promptTermination)
                 {
@@ -36,14 +38,13 @@ Esc: Exit examples";
                         case ConsoleKey.Escape:
                         case ConsoleKey.N:
                             promptTermination = false;
-                            Console.WriteLine("");
+                            Console.WriteLine("Vb.Mongo.Engine Examples");
                             break;
                         case ConsoleKey.Y:
                             terminate = promptTermination;
                             break;
                         default:
-                            Console.WriteLine("");
-                            Console.WriteLine("Do you wish to terminate the examples program (Y/N)");
+                            ExitConfirmation = true;
                             break;
                     }
                 }
@@ -52,8 +53,8 @@ Esc: Exit examples";
                     switch (cki.Key)
                     {
                         case ConsoleKey.Escape:
-                                promptTermination = !promptTermination;
-                                Console.WriteLine("DDo you wish to terminate the examples program (Y/N)");
+                            promptTermination = !promptTermination;
+                            ExitConfirmation = true;
                             break;
                         case ConsoleKey.Y:
                             terminate = promptTermination;
@@ -64,10 +65,14 @@ Esc: Exit examples";
                         case ConsoleKey.D2:
                             ExampleEngine.Instance.ExecuteExamples(EnExampleMode.RepositoryPattern);
                             break;
+                        case ConsoleKey.H:
+                            Console.WriteLine(Help);
+                            break;
                         default:
-                            Console.WriteLine("");
+                            Console.WriteLine("Unknown command");
                             break;
                     }
+
                 }
             } while (!terminate);
         }
